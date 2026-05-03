@@ -78,3 +78,9 @@ msgstr "Meses hacia el PASADO"
 
 msgid "Months in the FUTURE"
 msgstr "Meses hacia el FUTURO"
+
+msgid "If set to 0, it will sync only the last 7 days."
+msgstr "Si se establece en 0, solo sincronizará los últimos 7 días."
+
+msgid "If set to 0, it will sync the next 7 days."
+msgstr "Si se establece en 0, sincronizará los próximos 7 días."

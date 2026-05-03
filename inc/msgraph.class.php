@@ -198,13 +198,22 @@ class PluginMs365syncMsGraph extends CommonDBTM {
    private function getDynamicPrefix($users_id, $is_event = false) {
       global $DB;
       $field = $is_event ? 'prefix_events' : 'prefix_tasks';
+      
       $u_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
-      if (!empty($u_conf[$field])) return $u_conf[$field] . " ";
+      // Si el campo no es NULL en el usuario, lo usamos (incluso si es cadena vacía)
+      if ($u_conf && isset($u_conf[$field]) && $u_conf[$field] !== null) {
+         return $u_conf[$field] === '' ? '' : $u_conf[$field] . " ";
+      }
 
+      // Si no hay config de usuario, heredamos del Tenant
       $user_email = $this->getUserEmail($users_id);
       $domain = explode('@', $user_email)[1] ?? '';
       $t_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain])->current();
-      if (!empty($t_conf[$field])) return $t_conf[$field] . " ";
+      
+      if ($t_conf && isset($t_conf[$field])) {
+         // El tenant por defecto tiene valores, pero permitimos que se guarde vacío
+         return $t_conf[$field] === '' ? '' : $t_conf[$field] . " ";
+      }
 
       return $is_event ? __("Event: ", "ms365sync") : __("Task: ", "ms365sync");
    }
@@ -257,7 +266,11 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       
       // Contenido del cuerpo
       $content = $item->fields['content'] ?? ($item->fields['text'] ?? '');
-      $bodyContent = "<div>" . nl2br(strip_tags($content)) . "</div>";
+
+      // Decodificamos entidades HTML (como &lt;p&gt;) para que Outlook pueda renderizar el HTML real
+      $decoded_content = html_entity_decode($content, ENT_QUOTES, 'UTF-8');
+      
+      $bodyContent = "<div>" . $decoded_content . "</div>";
       $bodyContent .= "<br><hr><b>" . __("GLPI Link:", "ms365sync") . "</b> <a href='$glpi_url'>" . __("View Task", "ms365sync") . "</a>";
 
       // Fechas
@@ -331,7 +344,7 @@ class PluginMs365syncMsGraph extends CommonDBTM {
          }
          $glpi_url = $base_url . $item->getLinkURL();
          
-         $status_msg = $this->getTeamsMessage($users_id) . " " . __("Working on:", "ms365sync") . " " . $glpi_url;
+         $status_msg = $this->getTeamsMessage($users_id) . " " . __("Working on:", "ms365sync") . " " . $glpi_url . "<pinnednote></pinnednote>";
       
          // 1. Petición para establecer el Mensaje de Estado (setStatusMessage)
          $status_data = [
@@ -430,8 +443,13 @@ class PluginMs365syncMsGraph extends CommonDBTM {
             Toolbox::logInFile("ms365sync", "Procesando usuario: $email\n", true);
 
             $periods = $this->getSyncPeriods($user_id, $tenant_data['id']);
-            $start_date = date('Y-m-d\T00:00:00\Z', strtotime("-{$periods['past']} months"));
-            $end_date   = date('Y-m-d\T23:59:59\Z', strtotime("+{$periods['future']} months"));
+            
+            // Lógica: 0 = 7 días, cualquier otro número = meses
+            $past_str = ($periods['past'] === 0) ? "7 days" : "{$periods['past']} months";
+            $future_str = ($periods['future'] === 0) ? "7 days" : "{$periods['future']} months";
+
+            $start_date = date('Y-m-d\T00:00:00\Z', strtotime("-".$past_str));
+            $end_date   = date('Y-m-d\T23:59:59\Z', strtotime("+".$future_str));
             
             // Expandimos las extensiones para verificar el origen del evento
             $filter = rawurlencode("id eq 'org.glpi.ms365sync'");
@@ -462,6 +480,11 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                   // Seguridad: Decodificar entidades HTML y limpiar tags para el texto plano
                   $clean_text = ($ms_body !== null) ? strip_tags(html_entity_decode($ms_body, ENT_QUOTES, 'UTF-8')) : "Sin descripción";
                   $clean_name = $this->cleanSubject($ms_event['subject'] ?? __("Untitled", "ms365sync"));
+
+                  // Limpiar newlines y caracteres de control para evitar errores SQL en glpi_logs
+                  $clean_text = preg_replace('/[[:cntrl:]]/', ' ', $clean_text); // Eliminar caracteres de control
+                  $clean_text = preg_replace('/\s+/', ' ', $clean_text); // Reemplazar múltiples espacios/newlines con un solo espacio
+                  $clean_name = preg_replace('/[[:cntrl:]]/', ' ', $clean_name); // Limpiar también el nombre
                   
                   // Limitar longitud para DB
                   if (mb_strlen($clean_name) > 250) {
@@ -469,6 +492,15 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                   }
 
                   $check = $DB->request("glpi_plugin_ms365sync_event_map", ['ms_event_id' => $ms_event['id']])->current();
+
+                  // Si existe un mapeo, verificar que el objeto GLPI todavía existe realmente
+                  if ($check) {
+                     $item_check = new $check['glpi_itemtype']();
+                     if (!$item_check->getFromDB($check['glpi_items_id'])) {
+                        $DB->delete("glpi_plugin_ms365sync_event_map", ['id' => $check['id']]);
+                        $check = false; // Forzamos a que se trate como un evento nuevo
+                     }
+                  }
 
                   $input = [
                      'name'         => $clean_name,
@@ -483,8 +515,6 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      'entities_id'  => $this->getUserDefaultEntity($user_id),
                   ];
 
-                  // Seguridad CRUCIAL: Escapar para MariaDB
-                  $input = Toolbox::addslashes_deep($input);
                   $external_event = new PlanningExternalEvent();
 
                   if (!$check) {
@@ -584,9 +614,18 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       global $DB;
       $user_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
       $tenant_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['id' => $tenant_id])->current();
+      
+      $past = (isset($user_conf['sync_months_past']) && $user_conf['sync_months_past'] !== null && $user_conf['sync_months_past'] !== '')
+              ? $user_conf['sync_months_past']
+              : ($tenant_conf['sync_months_past'] ?? 1);
+
+      $future = (isset($user_conf['sync_months_future']) && $user_conf['sync_months_future'] !== null && $user_conf['sync_months_future'] !== '')
+              ? $user_conf['sync_months_future']
+              : ($tenant_conf['sync_months_future'] ?? 1);
+
       return [
-         'past'   => (!empty($user_conf['sync_months_past']))   ? $user_conf['sync_months_past']   : ($tenant_conf['sync_months_past'] ?? 1),
-         'future' => (!empty($user_conf['sync_months_future'])) ? $user_conf['sync_months_future'] : ($tenant_conf['sync_months_future'] ?? 1)
+         'past'   => (int)$past,
+         'future' => (int)$future
       ];
    }
 

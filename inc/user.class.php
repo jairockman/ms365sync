@@ -96,10 +96,12 @@ class PluginMs365syncUser extends CommonDBTM {
       // Rangos de tiempo
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Sync Range Override", "ms365sync") . "</b></td></tr>";
       echo "<tr class='tab_bg_1'><td>" . __("Months in the PAST", "ms365sync") . "</td>";
-      echo "<td><input type='number' name='sync_months_past' value='" . $this->fields['sync_months_past'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'></td></tr>";
+      echo "<td><input type='number' name='sync_months_past' value='" . $this->fields['sync_months_past'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'>";
+      echo "<p class='text-muted'><small>" . __("If set to 0, it will sync only the last 7 days.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr class='tab_bg_1'><td>" . __("Months in the FUTURE", "ms365sync") . "</td>";
-      echo "<td><input type='number' name='sync_months_future' value='" . $this->fields['sync_months_future'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'></td></tr>";
+      echo "<td><input type='number' name='sync_months_future' value='" . $this->fields['sync_months_future'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'>";
+      echo "<p class='text-muted'><small>" . __("If set to 0, it will sync the next 7 days.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr><td colspan='2' class='center'>";
       echo "<input type='submit' name='update' value='".__("Save Configuration", "ms365sync")."' class='btn btn-primary'>";

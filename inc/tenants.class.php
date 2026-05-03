@@ -128,10 +128,12 @@ class PluginMs365syncTenants extends CommonDBTM {
       // Configuración de Sincronización
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Synchronization Range", "ms365sync") . "</b></td></tr>";
       echo "<tr class='tab_bg_1'><td>".__("Months in the PAST", "ms365sync")."</td>";
-      echo "<td><input type='number' name='sync_months_past' value='" . ($this->fields['sync_months_past'] ?? 1) . "' class='form-control' min='0' max='12'></td></tr>";
+      echo "<td><input type='number' name='sync_months_past' value='" . ($this->fields['sync_months_past'] ?? 1) . "' class='form-control' min='0' max='12'>";
+      echo "<p class='text-muted'><small>" . __("If set to 0, it will sync only the last 7 days.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr class='tab_bg_1'><td>".__("Months in the FUTURE", "ms365sync")."</td>";
-      echo "<td><input type='number' name='sync_months_future' value='" . ($this->fields['sync_months_future'] ?? 12) . "' class='form-control' min='1' max='36'></td></tr>";
+      echo "<td><input type='number' name='sync_months_future' value='" . ($this->fields['sync_months_future'] ?? 1) . "' class='form-control' min='0' max='36'>";
+      echo "<p class='text-muted'><small>" . __("If set to 0, it will sync the next 7 days.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr class='tab_bg_1'><td>".__("Active")."</td><td>";
       Dropdown::showYesNo('active', $this->fields['active'] ?? 1);
@@ -178,4 +180,3 @@ class PluginMs365syncTenants extends CommonDBTM {
       return $input;
    }
 }
-

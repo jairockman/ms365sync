@@ -40,7 +40,6 @@ class PluginMs365syncActualtimeMonitor extends CommonDBTM {
     */
    private function checkAndSync() {
       global $DB;
-      Toolbox::logInFile("ms365sync", "MonitorTimers: Revisando timers activos y completados...\n", true);
 
       $table_actualtime = 'glpi_plugin_actualtime_tasks';
       $table_state = self::getTable();

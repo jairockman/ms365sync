@@ -11,7 +11,6 @@ include_once(dirname(__FILE__) . '/inc/actualtimemonitor.class.php');
 function plugin_ms365sync_hook_update_task($item) {
    // Evitar sincronizar de vuelta si estamos en medio de una importación
    if (PluginMs365syncMsGraph::$is_importing) {
-      Toolbox::logInFile("ms365sync", "Hook ignorado: Sincronización entrante en curso.\n", true);
       return;
    }
 

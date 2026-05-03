@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_MS365SYNC_VERSION', '1.0.0');
+define('PLUGIN_MS365SYNC_VERSION', '1.0.1');
 define('PLUGIN_MS365SYNC_MIN_GLPI', '10.0.0');
 define('PLUGIN_MS365SYNC_MAX_GLPI', '10.0.99');
 define('PLUGIN_MS365SYNC_ROOT', Plugin::getPhpDir('ms365sync'));
@@ -56,24 +56,29 @@ function plugin_init_ms365sync() {
 function plugin_ms365sync_install() {
    global $DB;
 
+   $migration = new Migration(PLUGIN_MS365SYNC_VERSION);
+   $default_key_sign = DBConnection::getDefaultPrimaryKeySignOption();
+   $default_charset  = DBConnection::getDefaultCharset();
+   $default_collation = DBConnection::getDefaultCollation();
+
    // Tabla de Tenants
    $table_tenants = "glpi_plugin_ms365sync_tenants";
    if (!$DB->tableExists($table_tenants)) {
       $query = "CREATE TABLE `$table_tenants` (
-         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+         `id` INT {$default_key_sign} NOT NULL AUTO_INCREMENT,
          `name` VARCHAR(255),
          `domain` VARCHAR(255),
          `tenant_id` VARCHAR(255),
          `client_id` VARCHAR(255),
          `client_secret` TEXT,
          `active` TINYINT(1) DEFAULT 1,
-         `sync_months_past` INT(11) DEFAULT 1,
-         `sync_months_future` INT(11) DEFAULT 12,
+         `sync_months_past` INT DEFAULT 1,
+         `sync_months_future` INT DEFAULT 1,
          `prefix_tasks` VARCHAR(50) DEFAULT 'Task: ',
          `prefix_events` VARCHAR(50) DEFAULT 'Event: ',
          `teams_status_msg` VARCHAR(255) DEFAULT 'Working on: ',
          PRIMARY KEY (`id`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+      ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query);
    }
 
@@ -81,18 +86,18 @@ function plugin_ms365sync_install() {
    $table_users = "glpi_plugin_ms365sync_users";
    if (!$DB->tableExists($table_users)) {
       $query = "CREATE TABLE `$table_users` (
-         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-         `users_id` INT(11) NOT NULL,
+         `id` INT {$default_key_sign} NOT NULL AUTO_INCREMENT,
+         `users_id` INT {$default_key_sign} NOT NULL,
          `is_sync_enabled` TINYINT(1) DEFAULT 0,
-         `sync_months_past` INT(11) DEFAULT NULL,
-         `sync_months_future` INT(11) DEFAULT NULL,
+         `sync_months_past` INT DEFAULT NULL,
+         `sync_months_future` INT DEFAULT NULL,
          `prefix_tasks` VARCHAR(50) DEFAULT NULL,
          `prefix_events` VARCHAR(50) DEFAULT NULL,
          `teams_status_msg` VARCHAR(255) DEFAULT NULL,
          `refresh_token` TEXT DEFAULT NULL,
          PRIMARY KEY (`id`),
          UNIQUE KEY `users_id` (`users_id`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+      ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query);
    }
 
@@ -100,9 +105,9 @@ function plugin_ms365sync_install() {
    $table_map = "glpi_plugin_ms365sync_event_map";
    if (!$DB->tableExists($table_map)) {
       $query = "CREATE TABLE `$table_map` (
-         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+         `id` INT {$default_key_sign} NOT NULL AUTO_INCREMENT,
          `glpi_itemtype` VARCHAR(100) NOT NULL,
-         `glpi_items_id` INT(11) NOT NULL,
+         `glpi_items_id` INT {$default_key_sign} NOT NULL,
          `ms_event_id` VARCHAR(255) NOT NULL,
          `ms_user_principal` VARCHAR(255) NOT NULL,
          `last_sync_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -111,7 +116,7 @@ function plugin_ms365sync_install() {
          PRIMARY KEY (`id`),
          KEY `glpi_item` (`glpi_itemtype`, `glpi_items_id`),
          KEY `ms_event` (`ms_event_id`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+      ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query) or die($DB->error());
    }
 
@@ -119,17 +124,17 @@ function plugin_ms365sync_install() {
    $table_state = "glpi_plugin_ms365sync_actualtime_state";
    if (!$DB->tableExists($table_state)) {
       $query = "CREATE TABLE `$table_state` (
-         `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-         `actualtime_id` INT(11) UNSIGNED NOT NULL,
+         `id` INT {$default_key_sign} NOT NULL AUTO_INCREMENT,
+         `actualtime_id` INT {$default_key_sign} NOT NULL,
          `itemtype` VARCHAR(100),
-         `items_id` INT(11),
-         `users_id` INT(11),
+         `items_id` INT {$default_key_sign} DEFAULT NULL,
+         `users_id` INT {$default_key_sign} DEFAULT NULL,
          `status` ENUM('started', 'stopped') DEFAULT 'started',
          `processed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
          PRIMARY KEY (`id`),
          KEY `actualtime_id` (`actualtime_id`),
          KEY `status` (`status`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+      ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query);
    }
 

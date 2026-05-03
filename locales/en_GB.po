@@ -78,3 +78,9 @@ msgstr "Months in the PAST"
 
 msgid "Months in the FUTURE"
 msgstr "Months in the FUTURE"
+
+msgid "If set to 0, it will sync only the last 7 days."
+msgstr "If set to 0, it will sync only the last 7 days."
+
+msgid "If set to 0, it will sync the next 7 days."
+msgstr "If set to 0, it will sync the next 7 days."
