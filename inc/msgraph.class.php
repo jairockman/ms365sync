@@ -1,0 +1,608 @@
+<?php
+
+class PluginMs365syncMsGraph extends CommonDBTM {
+
+   private $access_tokens = [];
+
+   /**
+    * Bandera para evitar bucles de sincronización durante la importación
+    */
+   public static $is_importing = false;
+
+   /**
+    * Obtiene el token de acceso para un dominio específico
+    */
+   public function getAccessTokenByDomain($domain) {
+      global $DB;
+      if (isset($this->access_tokens[$domain])) {
+         return $this->access_tokens[$domain];
+      }
+
+      $result = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain, 'active' => 1])->current();
+      if (!$result) {
+         Toolbox::logInFile("ms365sync", "No hay un Tenant activo para el dominio: $domain\n");
+         return false;
+      }
+
+      $tenant_id = $result['tenant_id'];
+      $client_id = $result['client_id'];
+      $key_manager = new GLPIKey();
+      $client_secret = $key_manager->decrypt($result['client_secret']);
+      
+      $url = "https://login.microsoftonline.com/$tenant_id/oauth2/v2.0/token";
+      $post_fields = [
+         'client_id'     => $client_id,
+         'scope'         => 'https://graph.microsoft.com/.default',
+         'client_secret' => $client_secret,
+         'grant_type'    => 'client_credentials',
+      ];
+
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_POST, 1);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      $response = curl_exec($ch);
+      $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+      $data = json_decode($response, true);
+      curl_close($ch);
+
+      if (isset($data['access_token'])) {
+         $this->access_tokens[$domain] = $data['access_token'];
+         Toolbox::logInFile("ms365sync", "Token de aplicación obtenido correctamente para el dominio: $domain\n", true);
+         return $data['access_token'];
+      } else {
+         Toolbox::logInFile("ms365sync", "Error obteniendo Token para $domain (HTTP $http_code): " . $response . "\n");
+      }
+      return false;
+   }
+
+   /**
+    * Genera la URL de autorización para el usuario (Permisos Delegados)
+    */
+   public function getAuthorizationUrl($users_id) {
+      $user_email = $this->getUserEmail($users_id);
+      $domain = explode('@', $user_email)[1] ?? '';
+      
+      global $DB, $CFG_GLPI;
+      $tenant = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain, 'active' => 1])->current();
+      if (!$tenant) return "#";
+
+      // Aseguramos que la URL sea absoluta y tenga las barras correctas
+      $base_url = rtrim($CFG_GLPI['url_base'] ?? '', '/');
+      if (empty($base_url)) {
+         $base_url = rtrim(Toolbox::getWebBaseUrl(), '/');
+      }
+      $redirect_uri = $base_url . '/' . ltrim(Plugin::getWebDir('ms365sync', false), '/') . "/front/auth.php";
+      $scopes = "offline_access Presence.ReadWrite User.Read Calendars.ReadWrite";
+      
+      return "https://login.microsoftonline.com/" . $tenant['tenant_id'] . "/oauth2/v2.0/authorize?" . http_build_query([
+         'client_id'     => $tenant['client_id'],
+         'response_type' => 'code',
+         'redirect_uri'  => $redirect_uri,
+         'response_mode' => 'query',
+         'scope'         => $scopes,
+         'state'         => $users_id
+      ]);
+   }
+
+   /**
+    * Obtiene un token delegado (del usuario) usando el refresh_token almacenado
+    */
+   private function getDelegatedAccessToken($users_id) {
+      global $DB;
+      $user_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
+      if (empty($user_conf['refresh_token'])) {
+         Toolbox::logInFile("ms365sync", "Usuario $users_id no tiene refresh_token (requiere re-autorización)\n");
+         return false;
+      }
+
+      $user_email = $this->getUserEmail($users_id);
+      $domain = explode('@', $user_email)[1] ?? '';
+      $tenant = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain, 'active' => 1])->current();
+      
+      $key_manager = new GLPIKey();
+      $refresh_token = $key_manager->decrypt($user_conf['refresh_token']);
+
+      $url = "https://login.microsoftonline.com/" . $tenant['tenant_id'] . "/oauth2/v2.0/token";
+      $post_fields = [
+         'client_id'     => $tenant['client_id'],
+         'client_secret' => $key_manager->decrypt($tenant['client_secret']),
+         'grant_type'    => 'refresh_token',
+         'refresh_token' => $refresh_token,
+         'scope'         => 'offline_access Presence.ReadWrite User.Read Calendars.ReadWrite'
+      ];
+
+      $ch = curl_init($url);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_fields));
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      $response = curl_exec($ch);
+      $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+      $data = json_decode($response, true);
+      curl_close($ch);
+
+      if (isset($data['access_token'])) {
+         return $data['access_token'];
+      }
+
+      Toolbox::logInFile("ms365sync", "Error renovando token delegado para usuario $users_id (HTTP $http_code): $response\n");
+      return false;
+   }
+
+   /**
+    * Wrapper para llamadas a la API de Microsoft Graph
+    */
+   private function callGraphAPI($method, $endpoint, $user_email, $data = null, $users_id = 0) {
+      $token = ($users_id > 0) ? $this->getDelegatedAccessToken($users_id) : false;
+      if (!$token) {
+         $parts = explode('@', $user_email);
+         $domain = end($parts);
+         $token = $this->getAccessTokenByDomain($domain);
+      }
+      if (!$token) return false;
+
+      // Si el endpoint ya es una URL completa (p.e. un nextLink), la usamos tal cual
+      if (strpos($endpoint, 'http') === 0) {
+         $url = $endpoint;
+      } else {
+         // Las APIs de Presencia requieren el endpoint /beta para funcionar con permisos de Aplicación.
+         $version = (strpos($endpoint, '/presence') !== false) ? 'beta' : 'v1.0';
+         $url = "https://graph.microsoft.com/$version" . $endpoint;
+      }
+
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+      $headers = [
+         "Authorization: Bearer $token",
+         "Content-Type: application/json"
+      ];
+
+      if ($data !== null) {
+         $payload = json_encode($data);
+         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+      } else if (in_array($method, ['POST', 'PATCH', 'PUT'])) {
+         // Fix para Error 411 (Length Required): Graph exige un cuerpo (aunque sea vacío) en POST/PATCH/PUT.
+         $payload = '{}';
+         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+      }
+
+      if (isset($payload)) {
+         $headers[] = "Content-Length: " . strlen($payload);
+      }
+
+      curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+      
+      $response = curl_exec($ch);
+      $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+      $curl_error = curl_error($ch);
+      curl_close($ch);
+
+      if ($http_code >= 200 && $http_code < 300) {
+         return json_decode($response, true) ?: true;
+      }
+
+      $log_msg = "Error API Graph (HTTP $http_code) [$method] en $endpoint: $response";
+      if ($http_code === 0) {
+         $log_msg .= " | cURL Error: $curl_error";
+      }
+      Toolbox::logInFile("ms365sync", $log_msg . "\n");
+      return false;
+   }
+
+   /**
+    * Obtiene prefijos dinámicos
+    */
+   private function getDynamicPrefix($users_id, $is_event = false) {
+      global $DB;
+      $field = $is_event ? 'prefix_events' : 'prefix_tasks';
+      $u_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
+      if (!empty($u_conf[$field])) return $u_conf[$field] . " ";
+
+      $user_email = $this->getUserEmail($users_id);
+      $domain = explode('@', $user_email)[1] ?? '';
+      $t_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain])->current();
+      if (!empty($t_conf[$field])) return $t_conf[$field] . " ";
+
+      return $is_event ? __("Event: ", "ms365sync") : __("Task: ", "ms365sync");
+   }
+
+   /**
+    * Evita duplicados de prefijos (p.e. "Event: Event: ...")
+    */
+   private function cleanSubject($subject) {
+      $prefixes = [
+         __("Event: ", "ms365sync"),
+         __("Task: ", "ms365sync"),
+         "Event: ",
+         "Task: "
+      ];
+      return trim(str_replace($prefixes, "", $subject));
+   }
+
+   /**
+    * Sincroniza hacia Outlook
+    */
+   public function syncTaskToMS($item) {
+      global $DB, $CFG_GLPI;
+
+      $tech_id = $item->fields['users_id_tech'] ?? ($item->fields['users_id'] ?? 0);
+      if ($tech_id <= 0) return;
+      $user_email = $this->getUserEmail($tech_id);
+      if (empty($user_email)) return;
+
+      $itemType = $item->getType();
+      $is_event = in_array($itemType, ['PlanningExternalEvent', 'PlanningEvent']);
+      
+      Toolbox::logInFile("ms365sync", "Iniciando sincronización hacia Outlook: $itemType ID " . $item->fields['id'] . "\n", true);
+
+      // Construcción del Título (Subject)
+      $rawName = $item->fields['name'] ?? "";
+      if (empty($rawName) && in_array($itemType, ['TicketTask', 'ProblemTask', 'ChangeTask', 'ProjectTask'])) {
+         $rawName = $itemType . " #" . $item->fields['id'];
+      }
+      
+      $cleanTitle = $this->cleanSubject($rawName);
+      $subject = trim($this->getDynamicPrefix($tech_id, $is_event) . $cleanTitle);
+
+      // Seguridad: Si el asunto queda vacío, Graph fallará con HTTP 400
+      if (empty($subject)) {
+         $subject = ($is_event) ? __("External Event", "ms365sync") : __("GLPI Task", "ms365sync");
+      }
+
+      // URL Absoluta para Outlook
+      $glpi_url = rtrim($CFG_GLPI['url_base'], '/') . $item->getLinkURL();
+      
+      // Contenido del cuerpo
+      $content = $item->fields['content'] ?? ($item->fields['text'] ?? '');
+      $bodyContent = "<div>" . nl2br(strip_tags($content)) . "</div>";
+      $bodyContent .= "<br><hr><b>" . __("GLPI Link:", "ms365sync") . "</b> <a href='$glpi_url'>" . __("View Task", "ms365sync") . "</a>";
+
+      // Fechas
+      $begin_raw = $item->fields['begin'] ?? ($item->fields['date'] ?? null);
+      $actiontime = intval($item->fields['actiontime'] ?? 3600);
+      $start = $this->formatDateTimeForGraph($begin_raw, $tech_id);
+      $end_val = $item->fields['end'] ?? date(PLUGIN_MS365SYNC_DATE_FORMAT, strtotime($begin_raw) + $actiontime);
+      $end = $this->formatDateTimeForGraph($end_val, $tech_id);
+
+      // Seguridad: Si no hay fechas válidas, no podemos sincronizar (evita HTTP 400)
+      if (empty($start) || empty($end)) {
+         Toolbox::logInFile("ms365sync", "Sincronización abortada: Fechas inválidas para el item " . $item->fields['id'] . "\n");
+         return;
+      }
+
+      $event_data = [
+         'subject' => $subject,
+         'body' => ['contentType' => 'HTML', 'content' => $bodyContent],
+         'start' => $start, 'end' => $end,
+         // Añadimos una extensión para identificar esta instancia de GLPI y evitar duplicados
+         'extensions' => [
+            [
+               '@odata.type' => 'microsoft.graph.openTypeExtension',
+               'extensionName' => 'org.glpi.ms365sync',
+               'instance_uuid' => Config::getConfigurationValue('uuid', '')
+            ]
+         ]
+      ];
+
+      $table_map = "glpi_plugin_ms365sync_event_map";
+      $mapped = $DB->request($table_map, ['glpi_itemtype' => $itemType, 'glpi_items_id' => $item->fields['id']])->current();
+
+      if ($mapped) {
+         $response = $this->callGraphAPI("PATCH", "/users/$user_email/events/" . $mapped['ms_event_id'], $user_email, $event_data);
+         
+         // Si el evento ya no existe en Outlook (404), borramos nuestro mapeo para permitir recreación
+         if ($response === false) {
+            // Nota: callGraphAPI loguea el error. Aquí solo detectamos la falla.
+            // Podríamos verificar el código HTTP si el wrapper lo permitiera, 
+            // pero por ahora si falla el PATCH, es sano limpiar el mapa.
+            $DB->delete($table_map, ['id' => $mapped['id']]);
+         }
+      } else {
+         $response = $this->callGraphAPI("POST", "/users/$user_email/events", $user_email, $event_data);
+         if ($response && isset($response['id'])) {
+            $DB->insert($table_map, [
+               'glpi_itemtype' => $itemType, 'glpi_items_id' => $item->fields['id'],
+               'ms_event_id' => $response['id'], 'ms_user_principal' => $user_email,
+               'last_sync_date' => date(PLUGIN_MS365SYNC_DATE_FORMAT)
+            ]);
+            Toolbox::logInFile("ms365sync", "Nuevo evento creado exitosamente en Outlook para usuario $user_email\n", true);
+         }
+      }
+   }
+
+   /**
+    * Presencia en Teams
+    */
+   public function setTeamsPresence($users_id, $is_starting = true, $item = null) {
+      if (!Plugin::isPluginActive('actualtime')) {return;}
+      $user_email = $this->getUserEmail($users_id);
+      if (empty($user_email)) {return;}
+
+      if ($is_starting && $item instanceof CommonDBTM) {
+         global $CFG_GLPI;
+         
+         // Construcción robusta de la URL absoluta
+         $base_url = rtrim($CFG_GLPI['url_base'] ?? '', '/');
+         if (empty($base_url)) {
+            $base_url = rtrim(Toolbox::getWebBaseUrl(), '/');
+         }
+         $glpi_url = $base_url . $item->getLinkURL();
+         
+         $status_msg = $this->getTeamsMessage($users_id) . " " . __("Working on:", "ms365sync") . " " . $glpi_url;
+      
+         // 1. Petición para establecer el Mensaje de Estado (setStatusMessage)
+         $status_data = [
+            'statusMessage' => [
+               'message' => [
+                  'content' => $status_msg,
+                  'contentType' => 'text'
+               ],
+               'published' => true, // "Show when people message me"
+               'expiryDateTime' => [
+                  'dateTime' => gmdate('Y-m-d\TH:i:s', strtotime('+8 hours')),
+                  'timeZone' => 'UTC'
+               ]
+            ]
+         ];
+         if ($this->callGraphAPI("POST", "/me/presence/setStatusMessage", $user_email, $status_data, $users_id)) {
+            Toolbox::logInFile("ms365sync", "Mensaje de estado de Teams actualizado para usuario $users_id\n", true);
+         }
+      
+         // 2. Petición para establecer la Disponibilidad
+         $presence_data = [
+            'availability' => 'Busy',
+            'activity' => 'Busy',
+            'expirationDuration' => 'PT8H'
+         ];
+         $res = $this->callGraphAPI("POST", "/me/presence/setUserPreferredPresence", $user_email, $presence_data, $users_id);
+         if ($res) {
+            Toolbox::logInFile("ms365sync", "Presencia en Teams establecida como 'Ocupado' para usuario $users_id\n", true);
+         }
+         return $res;
+      } else {
+         // Limpiar el mensaje de estado (Enviamos objeto vacío con expiración inmediata para evitar HTTP 400)
+         $clear_status = [
+            'statusMessage' => [
+               'message' => [
+                  'content' => '',
+                  'contentType' => 'text'
+               ],
+               'published' => false,
+               'expiryDateTime' => [
+                  'dateTime' => gmdate('Y-m-d\TH:i:s'),
+                  'timeZone' => 'UTC'
+               ]
+            ]
+         ];
+         if ($this->callGraphAPI("POST", "/me/presence/setStatusMessage", $user_email, $clear_status, $users_id)) {
+             Toolbox::logInFile("ms365sync", "Mensaje de estado de Teams limpiado para usuario $users_id\n", true);
+         }
+         $res = $this->callGraphAPI("POST", "/me/presence/clearUserPreferredPresence", $user_email, null, $users_id);
+         if ($res) {
+             Toolbox::logInFile("ms365sync", "Presencia en Teams restablecida a automático para usuario $users_id\n", true);
+         }
+         return $res;
+      }
+   }
+
+   /**
+    * Método estático requerido por el Cron de GLPI para la tarea 'syncEvents'
+    */
+   public static function cronSyncEvents(CronTask $crontask) {
+      Toolbox::logInFile("ms365sync", "Cron syncEvents: Iniciando importación de eventos externos...\n", true);
+      $instance = new self();
+      $instance->importExternalEvents();
+      
+      $crontask->setVolume(1);
+      return 1;
+   }
+
+   /**
+    * Importación desde Outlook a GLPI
+    */
+   public function importExternalEvents() {
+      global $DB;
+      
+      // Evitar timeout en sincronizaciones masivas
+      set_time_limit(0);
+
+      self::$is_importing = true;
+
+      $instance_uuid = Config::getConfigurationValue('uuid', '');
+
+      $tenants = $DB->request("glpi_plugin_ms365sync_tenants", ['active' => 1]);
+      
+      foreach ($tenants as $tenant_data) {
+         $domain = $tenant_data['domain'];
+         $iterator = $DB->request([
+            'SELECT' => ['u.email', 'u.users_id'],
+            'FROM'   => 'glpi_useremails AS u',
+            'INNER JOIN' => ['glpi_plugin_ms365sync_users AS conf' => ['ON' => ['u' => 'users_id', 'conf' => 'users_id']]],
+            'WHERE' => ['u.email' => ['LIKE', "%@$domain"], 'conf.is_sync_enabled' => 1]
+         ]);
+
+         foreach ($iterator as $user_data) {
+            $added = 0; $updated = 0;
+            $email = $user_data['email']; $user_id = $user_data['users_id'];
+            Toolbox::logInFile("ms365sync", "Procesando usuario: $email\n", true);
+
+            $periods = $this->getSyncPeriods($user_id, $tenant_data['id']);
+            $start_date = date('Y-m-d\T00:00:00\Z', strtotime("-{$periods['past']} months"));
+            $end_date   = date('Y-m-d\T23:59:59\Z', strtotime("+{$periods['future']} months"));
+            
+            // Expandimos las extensiones para verificar el origen del evento
+            $filter = rawurlencode("id eq 'org.glpi.ms365sync'");
+            $next_link = "/users/$email/calendarView?startDateTime=$start_date&endDateTime=$end_date&\$top=100&\$expand=extensions(\$filter=$filter)";
+
+            while ($next_link) {
+               $response = $this->callGraphAPI("GET", $next_link, $email);
+               if (!$response || !isset($response['value'])) {
+                  break;
+               }
+
+               foreach ($response['value'] as $ms_event) {
+                  // 1. Verificación de Instancia (Deduplicación)
+                  if (isset($ms_event['extensions'])) {
+                     foreach ($ms_event['extensions'] as $extension) {
+                        if ($extension['id'] === 'org.glpi.ms365sync' && 
+                            isset($extension['instance_uuid']) && 
+                            $extension['instance_uuid'] !== $instance_uuid) {
+                           // El evento pertenece a otra instancia de GLPI, ignorar.
+                           continue 2; 
+                        }
+                     }
+                  }
+
+                  $ms_modified = $this->formatGraphDateToGLPI($ms_event['lastModifiedDateTime']);
+                  $ms_body = $ms_event['body']['content'] ?? '';
+                  
+                  // Seguridad: Decodificar entidades HTML y limpiar tags para el texto plano
+                  $clean_text = ($ms_body !== null) ? strip_tags(html_entity_decode($ms_body, ENT_QUOTES, 'UTF-8')) : "Sin descripción";
+                  $clean_name = $this->cleanSubject($ms_event['subject'] ?? __("Untitled", "ms365sync"));
+                  
+                  // Limitar longitud para DB
+                  if (mb_strlen($clean_name) > 250) {
+                     $clean_name = mb_substr($clean_name, 0, 247) . '...';
+                  }
+
+                  $check = $DB->request("glpi_plugin_ms365sync_event_map", ['ms_event_id' => $ms_event['id']])->current();
+
+                  $input = [
+                     'name'         => $clean_name,
+                     'text'         => $clean_text,
+                     'users_id'     => $user_id,
+                     'plan'         => [
+                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime']),
+                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'])
+                     ],
+                     'is_recursive' => 1, 
+                     'state'        => 0, 
+                     'entities_id'  => $this->getUserDefaultEntity($user_id),
+                  ];
+
+                  // Seguridad CRUCIAL: Escapar para MariaDB
+                  $input = Toolbox::addslashes_deep($input);
+                  $external_event = new PlanningExternalEvent();
+
+                  if (!$check) {
+                     $new_id = $external_event->add($input);
+                     if ($new_id) {
+                        $DB->insert("glpi_plugin_ms365sync_event_map", [
+                           'glpi_itemtype' => 'PlanningExternalEvent', 'glpi_items_id' => $new_id,
+                           'ms_event_id' => $ms_event['id'], 'ms_user_principal' => $email,
+                           'ms_last_modified' => $ms_modified, 'last_sync_date' => date(PLUGIN_MS365SYNC_DATE_FORMAT)
+                        ]);
+                        $added++;
+                     }
+                  } elseif ($check['ms_last_modified'] != $ms_modified) {
+                     $input['id'] = $check['glpi_items_id'];
+                     if ($external_event->update($input)) {
+                        $DB->update("glpi_plugin_ms365sync_event_map", [
+                           'ms_last_modified' => $ms_modified, 'last_sync_date' => date(PLUGIN_MS365SYNC_DATE_FORMAT)
+                        ], ['id' => $check['id']]);
+                        $updated++;
+                     }
+                  }
+               }
+               $next_link = $response['@odata.nextLink'] ?? null;
+            }
+            Toolbox::logInFile("ms365sync", "Usuario $email finalizado: $added nuevos, $updated actualizados.\n", true);
+         }
+      }
+
+      self::$is_importing = false;
+   }
+
+   /**
+    * Elimina un evento en Microsoft Graph
+    */
+   public function deleteOutlookEvent($user_email, $ms_event_id) {
+      // Reutilizamos el wrapper callGraphAPI que ya maneja tokens y errores
+      $response = $this->callGraphAPI("DELETE", "/users/$user_email/events/$ms_event_id", $user_email);
+      
+      // En un DELETE exitoso, Graph devuelve un HTTP 204 No Content (que nuestro wrapper traduce como true/false)
+      return $response !== false;
+   }
+
+   // --- MÉTODOS DE APOYO ---
+
+   private function getTeamsMessage($users_id) {
+      global $DB;
+      $u_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
+      if (!empty($u_conf['teams_status_msg'])) {return $u_conf['teams_status_msg'];}
+      $user_email = $this->getUserEmail($users_id);
+      $domain = explode('@', $user_email)[1] ?? '';
+      $t_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain])->current();
+      return $t_conf['teams_status_msg'] ?? "";
+   }
+
+   public function getUserEmail($users_id) {
+      global $DB;
+      $iterator = $DB->request('glpi_useremails', ['users_id' => $users_id]);
+      $email = '';
+      foreach ($iterator as $row) {
+         if ($row['is_default']) {return $row['email'];}
+         $email = $row['email'];
+      }
+      return $email;
+   }
+
+   public function formatDateTimeForGraph($date, $users_id) {
+      if (empty($date) || $date == 'NULL') {
+         return null;
+      }
+      $user_tz = $this->getUserTimezone($users_id);
+      try {
+         $dt = new DateTime($date, new DateTimeZone($user_tz));
+         return ['dateTime' => $dt->format('Y-m-d\TH:i:s'), 'timeZone' => $user_tz];
+      } catch (Exception $e) { return null; }
+   }
+
+   private function getUserTimezone($users_id) {
+      $user = new User();
+      if ($user->getFromDB($users_id) && !empty($user->fields['timezone'])) {return $user->fields['timezone'];}
+      return $_SESSION['glpitimezone'] ?? date_default_timezone_get();
+   }
+
+   public function formatGraphDateToGLPI($graphDate) {
+      if (empty($graphDate)) {return null;}
+      try {
+         $date = new \DateTime($graphDate);
+         return $date->format(PLUGIN_MS365SYNC_DATE_FORMAT);
+      } catch (\Exception $e) { return null; }
+   }
+
+   private function getUserDefaultEntity($users_id) {
+      $user = new User();
+      return ($user->getFromDB($users_id)) ? ($user->fields['entities_id'] ?? 0) : 0;
+   }
+
+   public function getSyncPeriods($users_id, $tenant_id) {
+      global $DB;
+      $user_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
+      $tenant_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['id' => $tenant_id])->current();
+      return [
+         'past'   => (!empty($user_conf['sync_months_past']))   ? $user_conf['sync_months_past']   : ($tenant_conf['sync_months_past'] ?? 1),
+         'future' => (!empty($user_conf['sync_months_future'])) ? $user_conf['sync_months_future'] : ($tenant_conf['sync_months_future'] ?? 1)
+      ];
+   }
+
+   /**
+    * Método para forzar la sincronización de una tarea específica
+    */
+   public function forceSyncItem($itemtype, $items_id) {
+      global $DB;
+      // Cargamos el objeto original
+      $item = new $itemtype();
+      if ($item->getFromDB($items_id)) {
+         // Llamamos a tu método de sincronización existente
+         $this->syncTaskToMS($item);
+         return true;
+      }
+      return false;
+   }
+
+}

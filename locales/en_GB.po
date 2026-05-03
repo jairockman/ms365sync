@@ -1,0 +1,80 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: MS365 Sync\n"
+"POT-Creation-Date: 2026-04-30 12:00-0500\n"
+"PO-Revision-Date: 2026-04-30 12:00-0500\n"
+"Last-Translator: Jairo Andrés Cervantes Miño\n"
+"Language-Team: English\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.0\n"
+
+# --- Tenants Config ---
+msgid "Microsoft 365 Tenant Configuration"
+msgstr "Microsoft 365 Tenant Configuration"
+
+msgid "Add New Domain/Tenant"
+msgstr "Add New Domain/Tenant"
+
+msgid "Domain"
+msgstr "Domain"
+
+msgid "Tenant ID"
+msgstr "Tenant ID"
+
+msgid "Connection Settings"
+msgstr "Connection Settings"
+
+msgid "Descriptive Name"
+msgstr "Descriptive Name"
+
+msgid "Leave empty to keep current secret"
+msgstr "Leave empty to keep current secret"
+
+# --- Prefixes and Teams ---
+msgid "Default Sync Preferences"
+msgstr "Default Sync Preferences"
+
+msgid "Default Task Prefix"
+msgstr "Default Task Prefix"
+
+msgid "Default Event Prefix"
+msgstr "Default Event Prefix"
+
+msgid "Default Teams Status Message"
+msgstr "Default Teams Status Message"
+
+# --- User Config ---
+msgid "Microsoft 365 Synchronization"
+msgstr "Microsoft 365 Synchronization"
+
+msgid "Enable Synchronization"
+msgstr "Enable Synchronization"
+
+msgid "Personalized Prefixes"
+msgstr "Personalized Prefixes"
+
+msgid "Task Prefix"
+msgstr "Task Prefix"
+
+msgid "Event Prefix"
+msgstr "Event Prefix"
+
+msgid "Teams Integration"
+msgstr "Teams Integration"
+
+msgid "Personal Status Message"
+msgstr "Personal Status Message"
+
+msgid "Inherit from tenant"
+msgstr "Inherit from tenant"
+
+msgid "Sync Range Override"
+msgstr "Sync Range Override"
+
+msgid "Months in the PAST"
+msgstr "Months in the PAST"
+
+msgid "Months in the FUTURE"
+msgstr "Months in the FUTURE"

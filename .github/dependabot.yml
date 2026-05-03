@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: "composer" # Para dependencias PHP
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    # Esto asegura que Dependabot trabaje sobre tus ramas estables
+    target-branch: "1.0/bugfixes" 
+
+  - package-ecosystem: "github-actions" # Para actualizar tus flujos de GitHub
+    directory: "/"
+    schedule:
+      interval: "monthly"

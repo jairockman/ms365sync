@@ -1,0 +1,80 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: MS365 Sync\n"
+"POT-Creation-Date: 2026-04-30 12:00-0500\n"
+"PO-Revision-Date: 2026-04-30 12:00-0500\n"
+"Last-Translator: Jairo Andrés Cervantes Miño\n"
+"Language-Team: Spanish\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.0\n"
+
+# --- Tenants Config ---
+msgid "Microsoft 365 Tenant Configuration"
+msgstr "Configuración de Tenants Microsoft 365"
+
+msgid "Add New Domain/Tenant"
+msgstr "Agregar Nuevo Dominio/Tenant"
+
+msgid "Domain"
+msgstr "Dominio"
+
+msgid "Tenant ID"
+msgstr "ID del Tenant"
+
+msgid "Connection Settings"
+msgstr "Ajustes de Conexión"
+
+msgid "Descriptive Name"
+msgstr "Nombre Descriptivo"
+
+msgid "Leave empty to keep current secret"
+msgstr "Dejar vacío para mantener el secreto actual"
+
+# --- Prefijos y Teams ---
+msgid "Default Sync Preferences"
+msgstr "Preferencias de Sincronización por Defecto"
+
+msgid "Default Task Prefix"
+msgstr "Prefijo de Tarea por Defecto"
+
+msgid "Default Event Prefix"
+msgstr "Prefijo de Evento por Defecto"
+
+msgid "Default Teams Status Message"
+msgstr "Mensaje de Estado de Teams por Defecto"
+
+# --- User Config ---
+msgid "Microsoft 365 Synchronization"
+msgstr "Sincronización Microsoft 365"
+
+msgid "Enable Synchronization"
+msgstr "Habilitar Sincronización"
+
+msgid "Personalized Prefixes"
+msgstr "Prefijos Personalizados"
+
+msgid "Task Prefix"
+msgstr "Prefijo de Tarea"
+
+msgid "Event Prefix"
+msgstr "Prefijo de Evento"
+
+msgid "Teams Integration"
+msgstr "Integración con Teams"
+
+msgid "Personal Status Message"
+msgstr "Mensaje de Estado Personalizado"
+
+msgid "Inherit from tenant"
+msgstr "Heredar del dominio (tenant)"
+
+msgid "Sync Range Override"
+msgstr "Sobrescribir Rango de Sincronización"
+
+msgid "Months in the PAST"
+msgstr "Meses hacia el PASADO"
+
+msgid "Months in the FUTURE"
+msgstr "Meses hacia el FUTURO"

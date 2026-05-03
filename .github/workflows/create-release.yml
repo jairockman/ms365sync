@@ -1,0 +1,49 @@
+name: Generate Plugin Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Packages (Zip and Tar)
+        run: |
+          # Preparamos la carpeta con el nombre del plugin
+          mkdir ms365sync
+          cp -r $(ls -A | grep -vE ".git|.github|ms365sync") ms365sync/
+          
+          # Crear ZIP
+          zip -r ms365sync-${{ github.ref_name }}.zip ms365sync/
+          
+          # Crear TAR.BZ2 (Como Actualtime)
+          tar -cjf ms365sync-${{ github.ref_name }}.tar.bz2 ms365sync/
+          
+          # Generar Hashes de seguridad
+          echo "HASH_ZIP=$(sha256sum ms365sync-${{ github.ref_name }}.zip | awk '{ print $1 }')" >> $GITHUB_ENV
+          echo "HASH_TAR=$(sha256sum ms365sync-${{ github.ref_name }}.tar.bz2 | awk '{ print $1 }')" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ms365sync-${{ github.ref_name }}.zip
+            ms365sync-${{ github.ref_name }}.tar.bz2
+          body: |
+            ### 📦 ms365sync ${{ github.ref_name }}
+            
+            **Checksum SHA256:**
+            - `.zip`: `${{ env.HASH_ZIP }}`
+            - `.tar.bz2`: `${{ env.HASH_TAR }}`
+            
+            ---
+            Detailed changes in this version are listed below.
+            Regards.
+          generate_release_notes: true
