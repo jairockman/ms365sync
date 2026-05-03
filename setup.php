@@ -61,7 +61,7 @@ function plugin_ms365sync_install() {
    if (!$DB->tableExists($table_tenants)) {
       $query = "CREATE TABLE `$table_tenants` (
          `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-         `name` VARCHAR(),
+         `name` VARCHAR(255),
          `domain` VARCHAR(255),
          `tenant_id` VARCHAR(255),
          `client_id` VARCHAR(255),

@@ -18,7 +18,7 @@ jobs:
         run: |
           # Preparamos la carpeta con el nombre del plugin
           mkdir ms365sync
-          cp -r $(ls -A | grep -vE ".git|.github|ms365sync") ms365sync/
+          cp -r $(ls -A | grep -vE ".git|.github|.vscode|.gitignore|ms365sync") ms365sync/
           
           # Crear ZIP
           zip -r ms365sync-${{ github.ref_name }}.zip ms365sync/
