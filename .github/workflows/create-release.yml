@@ -31,7 +31,7 @@ jobs:
           echo "HASH_TAR=$(sha256sum ms365sync-${{ github.ref_name }}.tar.bz2 | awk '{ print $1 }')" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             ms365sync-${{ github.ref_name }}.zip
