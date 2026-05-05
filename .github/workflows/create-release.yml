@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Create Packages (Zip and Tar)
         run: |
@@ -31,7 +31,7 @@ jobs:
           echo "HASH_TAR=$(sha256sum ms365sync-${{ github.ref_name }}.tar.bz2 | awk '{ print $1 }')" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         with:
           files: |
             ms365sync-${{ github.ref_name }}.zip
