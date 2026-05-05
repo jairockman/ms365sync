@@ -83,15 +83,33 @@ class PluginMs365syncUser extends CommonDBTM {
       // Prefijos Personalizados
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Personalized Prefixes", "ms365sync") . "</b></td></tr>";
       echo "<tr class='tab_bg_1'><td>" . __("Task Prefix", "ms365sync") . "</td>";
-      echo "<td><input type='text' name='prefix_tasks' value='" . $this->fields['prefix_tasks'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'></td></tr>";
+      echo "<td>";
+      Dropdown::showFromArray("use_prefix_tasks", [-1 => __("Inherit from tenant", "ms365sync"), 0 => __("No"), 1 => __("Yes")], [
+         'value' => $this->fields['use_prefix_tasks'] ?? -1,
+         'rand'  => $rand = mt_rand()
+      ]);
+      echo " <input type='text' id='prefix_tasks_$rand' name='prefix_tasks' value='" . $this->fields['prefix_tasks'] . "' class='form-control' style='width: 60%; display: inline-block;' placeholder='".__("Inherit from tenant", "ms365sync")."' ". (($this->fields['use_prefix_tasks'] ?? -1) == 1 ? "" : "disabled") .">";
+      echo "<p class='text-muted'><small>" . __("Select 'Yes' to customize, 'No' to disable, or 'Inherit' to use the Tenant settings.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr class='tab_bg_1'><td>" . __("Event Prefix", "ms365sync") . "</td>";
-      echo "<td><input type='text' name='prefix_events' value='" . $this->fields['prefix_events'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'></td></tr>";
+      echo "<td>";
+      Dropdown::showFromArray("use_prefix_events", [-1 => __("Inherit from tenant", "ms365sync"), 0 => __("No"), 1 => __("Yes")], [
+         'value' => $this->fields['use_prefix_events'] ?? -1,
+         'rand'  => $rand_ev = mt_rand()
+      ]);
+      echo " <input type='text' id='prefix_events_$rand_ev' name='prefix_events' value='" . $this->fields['prefix_events'] . "' class='form-control' style='width: 60%; display: inline-block;' placeholder='".__("Inherit from tenant", "ms365sync")."' ". (($this->fields['use_prefix_events'] ?? -1) == 1 ? "" : "disabled") .">";
+      echo "<p class='text-muted'><small>" . __("Select 'Yes' to customize, 'No' to disable, or 'Inherit' to use the Tenant settings.", "ms365sync") . "</small></p></td></tr>";
 
       // Teams Personalizado
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Teams Integration", "ms365sync") . "</b></td></tr>";
       echo "<tr class='tab_bg_1'><td>" . __("Personal Status Message", "ms365sync") . "</td>";
-      echo "<td><input type='text' name='teams_status_msg' value='" . $this->fields['teams_status_msg'] . "' class='form-control' placeholder='".__("Inherit from tenant", "ms365sync")."'></td></tr>";
+      echo "<td>";
+      Dropdown::showFromArray("use_teams_status_prefix", [-1 => __("Inherit from tenant", "ms365sync"), 0 => __("No"), 1 => __("Yes")], [
+         'value' => $this->fields['use_teams_status_prefix'] ?? -1,
+         'rand'  => $rand_tm = mt_rand()
+      ]);
+      echo " <input type='text' id='teams_status_msg_$rand_tm' name='teams_status_msg' value='" . $this->fields['teams_status_msg'] . "' class='form-control' style='width: 60%; display: inline-block;' placeholder='".__("Inherit from tenant", "ms365sync")."' ". (($this->fields['use_teams_status_prefix'] ?? -1) == 1 ? "" : "disabled") .">";
+      echo "<p class='text-muted'><small>" . __("Select 'Yes' to customize, 'No' to use the default message, or 'Inherit' for global settings.", "ms365sync") . "</small></p></td></tr>";
 
       // Rangos de tiempo
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Sync Range Override", "ms365sync") . "</b></td></tr>";
@@ -108,6 +126,16 @@ class PluginMs365syncUser extends CommonDBTM {
       echo "</td></tr>";
 
       echo "</table></div>";
+      
+      // Script para manejar los dropdowns del usuario
+      echo Html::scriptBlock("
+         $(document).on('change', 'select[name^=\"use_\"]', function() {
+            var val = $(this).val();
+            var input = $(this).closest('td').find('input[type=\"text\"]');
+            input.prop('disabled', val != 1);
+         });
+      ");
+
       Html::closeForm();
    }
 }

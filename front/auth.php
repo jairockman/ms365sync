@@ -55,4 +55,5 @@ if (isset($_GET['code']) && isset($_GET['state'])) {
     }
 }
 
-Html::redirect(Toolbox::getItemTypeFormURL('User') . "?id=" . Session::getLoginUserID() . "&forcetab=PluginMs365syncUser$1");
+Html::redirect(Toolbox::getItemTypeFormURL('User') . "?id=" .
+Session::getLoginUserID() . "&forcetab=PluginMs365syncUser$1");

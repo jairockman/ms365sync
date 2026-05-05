@@ -117,13 +117,19 @@ class PluginMs365syncTenants extends CommonDBTM {
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Default Sync Preferences", "ms365sync") . "</b></td></tr>";
       
       echo "<tr class='tab_bg_1'><td>" . __("Default Task Prefix", "ms365sync") . "</td>";
-      echo "<td><input type='text' name='prefix_tasks' value='" . ($this->fields['prefix_tasks'] ?? '') . "' class='form-control' placeholder='Tarea: '></td></tr>";
+      echo "<td>" . Html::getCheckbox(['name' => 'use_prefix_tasks', 'id' => 'use_prefix_tasks', 'checked' => $this->fields['use_prefix_tasks'] ?? 1, 'value' => 1]) . " ";
+      echo "<input type='text' id='prefix_tasks' name='prefix_tasks' value='" . ($this->fields['prefix_tasks'] ?? '') . "' class='form-control' style='width: 80%; display: inline-block;' placeholder='Tarea: ' ". (($this->fields['use_prefix_tasks'] ?? 1) ? "" : "disabled") .">";
+      echo "<p class='text-muted'><small>" . __("If enabled, you can define a custom prefix. If disabled, no prefix will be added.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr class='tab_bg_1'><td>" . __("Default Event Prefix", "ms365sync") . "</td>";
-      echo "<td><input type='text' name='prefix_events' value='" . ($this->fields['prefix_events'] ?? '') . "' class='form-control' placeholder='Evento: '></td></tr>";
+      echo "<td>" . Html::getCheckbox(['name' => 'use_prefix_events', 'id' => 'use_prefix_events', 'checked' => $this->fields['use_prefix_events'] ?? 1, 'value' => 1]) . " ";
+      echo "<input type='text' id='prefix_events' name='prefix_events' value='" . ($this->fields['prefix_events'] ?? '') . "' class='form-control' style='width: 80%; display: inline-block;' placeholder='Evento: ' ". (($this->fields['use_prefix_events'] ?? 1) ? "" : "disabled") .">";
+      echo "<p class='text-muted'><small>" . __("If enabled, you can define a custom prefix. If disabled, no prefix will be added.", "ms365sync") . "</small></p></td></tr>";
 
       echo "<tr class='tab_bg_1'><td>" . __("Default Teams Status Message", "ms365sync") . "</td>";
-      echo "<td><input type='text' name='teams_status_msg' value='" . ($this->fields['teams_status_msg'] ?? '') . "' class='form-control' placeholder='Ocupado trabajando en: '></td></tr>";
+      echo "<td>" . Html::getCheckbox(['name' => 'use_teams_status_prefix', 'id' => 'use_teams_status_prefix', 'checked' => $this->fields['use_teams_status_prefix'] ?? 0, 'value' => 1]) . " ";
+      echo "<input type='text' id='teams_status_msg' name='teams_status_msg' value='" . ($this->fields['teams_status_msg'] ?? '') . "' class='form-control' style='width: 80%; display: inline-block;' placeholder='Ocupado trabajando en: ' ". (($this->fields['use_teams_status_prefix'] ?? 0) ? "" : "disabled") .">";
+      echo "<p class='text-muted'><small>" . __("If enabled, you can customize the message. If disabled, the default 'Working on:' will be used.", "ms365sync") . "</small></p></td></tr>";
 
       // Configuración de Sincronización
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Synchronization Range", "ms365sync") . "</b></td></tr>";
@@ -152,6 +158,15 @@ class PluginMs365syncTenants extends CommonDBTM {
 
       echo "</table></div>";
       echo "</form>";
+
+      // Script para deshabilitar inputs según checkbox
+      echo Html::scriptBlock("
+         $(document).on('change', '#use_prefix_tasks, #use_prefix_events, #use_teams_status_prefix', function() {
+            var targetId = $(this).attr('id').replace('use_', '');
+            if (targetId === 'teams_status_prefix') targetId = 'teams_status_msg';
+            $('#' + targetId).prop('disabled', !$(this).is(':checked'));
+         });
+      ");
    }
 
    public function prepareInputForAdd($input) {
@@ -163,6 +178,11 @@ class PluginMs365syncTenants extends CommonDBTM {
    }
 
    public function prepareInputForUpdate($input) {
+      // Gestión de Checkboxes (si no vienen en POST es porque están desactivados)
+      $input['use_prefix_tasks'] = isset($input['use_prefix_tasks']) ? 1 : 0;
+      $input['use_prefix_events'] = isset($input['use_prefix_events']) ? 1 : 0;
+      $input['use_teams_status_prefix'] = isset($input['use_teams_status_prefix']) ? 1 : 0;
+
       // Gestión del secreto (Encriptación)
       if (isset($input['client_secret']) && !empty($input['client_secret'])) {
          $key_manager = new GLPIKey();

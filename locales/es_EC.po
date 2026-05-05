@@ -84,3 +84,12 @@ msgstr "Si se establece en 0, solo sincronizará los últimos 7 días."
 
 msgid "If set to 0, it will sync the next 7 days."
 msgstr "Si se establece en 0, sincronizará los próximos 7 días."
+
+msgid "If enabled, you can define a custom prefix. If disabled, no prefix will be added."
+msgstr "Si está activo, puede definir un prefijo personalizado. Si está desactivado, no se añadirá ningún prefijo."
+
+msgid "If enabled, you can customize the message. If disabled, the default 'Working on:' will be used."
+msgstr "Si está activo, puede personalizar el mensaje. Si está desactivado, se usará el valor por defecto 'Trabajando en:'."
+
+msgid "Select 'Yes' to customize, 'No' to disable, or 'Inherit' to use the Tenant settings."
+msgstr "Seleccione 'Sí' para personalizar, 'No' para desactivar o 'Heredar' para usar la configuración global."

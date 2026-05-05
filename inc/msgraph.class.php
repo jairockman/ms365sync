@@ -198,11 +198,15 @@ class PluginMs365syncMsGraph extends CommonDBTM {
    private function getDynamicPrefix($users_id, $is_event = false) {
       global $DB;
       $field = $is_event ? 'prefix_events' : 'prefix_tasks';
-      
+      $use_field = $is_event ? 'use_prefix_events' : 'use_prefix_tasks';
+      $default = $is_event ? __("Event: ", "ms365sync") : __("Task: ", "ms365sync");
+
       $u_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
-      // Si el campo no es NULL en el usuario, lo usamos (incluso si es cadena vacía)
-      if ($u_conf && isset($u_conf[$field]) && $u_conf[$field] !== null) {
-         return $u_conf[$field] === '' ? '' : $u_conf[$field] . " ";
+      
+      // Lógica de Usuario
+      if ($u_conf && isset($u_conf[$use_field]) && $u_conf[$use_field] !== null) {
+         if ($u_conf[$use_field] == 0) return "";
+         return (empty($u_conf[$field])) ? $default : $u_conf[$field] . " ";
       }
 
       // Si no hay config de usuario, heredamos del Tenant
@@ -210,12 +214,12 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       $domain = explode('@', $user_email)[1] ?? '';
       $t_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain])->current();
       
-      if ($t_conf && isset($t_conf[$field])) {
-         // El tenant por defecto tiene valores, pero permitimos que se guarde vacío
-         return $t_conf[$field] === '' ? '' : $t_conf[$field] . " ";
+      if ($t_conf) {
+         if ($t_conf[$use_field] == 0) return "";
+         return (empty($t_conf[$field])) ? $default : $t_conf[$field] . " ";
       }
 
-      return $is_event ? __("Event: ", "ms365sync") : __("Task: ", "ms365sync");
+      return $default;
    }
 
    /**
@@ -561,12 +565,26 @@ class PluginMs365syncMsGraph extends CommonDBTM {
 
    private function getTeamsMessage($users_id) {
       global $DB;
+      $default = __("Working on:", "ms365sync");
       $u_conf = $DB->request("glpi_plugin_ms365sync_users", ['users_id' => $users_id])->current();
-      if (!empty($u_conf['teams_status_msg'])) {return $u_conf['teams_status_msg'];}
+
+      // Lógica Usuario
+      if ($u_conf && isset($u_conf['use_teams_status_prefix']) && $u_conf['use_teams_status_prefix'] !== null) {
+         if ($u_conf['use_teams_status_prefix'] == 0) return $default;
+         return (!empty($u_conf['teams_status_msg'])) ? $u_conf['teams_status_msg'] : $default;
+      }
+
+      // Herencia Tenant
       $user_email = $this->getUserEmail($users_id);
       $domain = explode('@', $user_email)[1] ?? '';
       $t_conf = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain])->current();
-      return $t_conf['teams_status_msg'] ?? "";
+
+      if ($t_conf) {
+         if ($t_conf['use_teams_status_prefix'] == 0) return $default;
+         return (!empty($t_conf['teams_status_msg'])) ? $t_conf['teams_status_msg'] : $default;
+      }
+
+      return $default;
    }
 
    public function getUserEmail($users_id) {

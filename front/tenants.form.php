@@ -14,15 +14,13 @@ if (isset($_POST["add"])) {
     }
     $newID = $tenant->add($_POST);
     Html::redirect($tenant->getFormURL($newID));
-} 
-else if (isset($_POST["update"])) {
+}elseif (isset($_POST["update"])) {
     if (!Session::haveRight("config", UPDATE)) {
         Html::displayRightError();
     }
     $tenant->update($_POST);
     Html::back();
-}
-else if (isset($_POST["delete"])) {
+}elseif (isset($_POST["delete"])) {
     if (!Session::haveRight("config", UPDATE)) {
         Html::displayRightError();
     }
@@ -36,12 +34,11 @@ else if (isset($_POST["delete"])) {
         }
     }
     Html::back();
-}
-else {
+}else {
     Html::header("Microsoft 365 Tenants", $_SERVER['PHP_SELF'], "config", "PluginMs365syncTenants");
     
     if (isset($_GET['id']) || isset($_GET['new'])) {
-        $tenant->showFormConfig(); 
+        $tenant->showFormConfig();
     } else {
         Html::redirect($tenant->getSearchURL());
     }

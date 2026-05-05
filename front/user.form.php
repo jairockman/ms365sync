@@ -16,6 +16,12 @@ if (isset($_POST["update"])) {
     $input = [
         'users_id'           => (int)$_POST['users_id'],
         'is_sync_enabled'    => (int)$_POST['is_sync_enabled'],
+        'use_prefix_tasks'   => ($_POST['use_prefix_tasks'] == -1) ? 'NULL' : (int)$_POST['use_prefix_tasks'],
+        'use_prefix_events'  => ($_POST['use_prefix_events'] == -1) ? 'NULL' : (int)$_POST['use_prefix_events'],
+        'use_teams_status_prefix' => ($_POST['use_teams_status_prefix'] == -1) ? 'NULL' : (int)$_POST['use_teams_status_prefix'],
+        'prefix_tasks'       => $_POST['prefix_tasks'],
+        'prefix_events'      => $_POST['prefix_events'],
+        'teams_status_msg'   => $_POST['teams_status_msg'],
         'sync_months_past'   => ($_POST['sync_months_past'] === '') ? 'NULL' : (int)$_POST['sync_months_past'],
         'sync_months_future' => ($_POST['sync_months_future'] === '') ? 'NULL' : (int)$_POST['sync_months_future']
     ];

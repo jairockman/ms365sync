@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_MS365SYNC_VERSION', '1.0.1');
+define('PLUGIN_MS365SYNC_VERSION', '1.0.2');
 define('PLUGIN_MS365SYNC_MIN_GLPI', '10.0.0');
 define('PLUGIN_MS365SYNC_MAX_GLPI', '10.0.99');
 define('PLUGIN_MS365SYNC_ROOT', Plugin::getPhpDir('ms365sync'));
@@ -72,6 +72,9 @@ function plugin_ms365sync_install() {
          `client_id` VARCHAR(255),
          `client_secret` TEXT,
          `active` TINYINT(1) DEFAULT 1,
+         `use_prefix_tasks` TINYINT(1) DEFAULT 1,
+         `use_prefix_events` TINYINT(1) DEFAULT 1,
+         `use_teams_status_prefix` TINYINT(1) DEFAULT 0,
          `sync_months_past` INT DEFAULT 1,
          `sync_months_future` INT DEFAULT 1,
          `prefix_tasks` VARCHAR(50) DEFAULT 'Task: ',
@@ -82,6 +85,12 @@ function plugin_ms365sync_install() {
       $DB->query($query);
    }
 
+   if ($DB->tableExists($table_tenants)) {
+      $migration->addField($table_tenants, 'use_prefix_tasks', 'tinyint(1)', ['value' => 1]);
+      $migration->addField($table_tenants, 'use_prefix_events', 'tinyint(1)', ['value' => 1]);
+      $migration->addField($table_tenants, 'use_teams_status_prefix', 'tinyint(1)', ['value' => 0]);
+   }
+
    // Tabla de Usuarios
    $table_users = "glpi_plugin_ms365sync_users";
    if (!$DB->tableExists($table_users)) {
@@ -89,6 +98,9 @@ function plugin_ms365sync_install() {
          `id` INT {$default_key_sign} NOT NULL AUTO_INCREMENT,
          `users_id` INT {$default_key_sign} NOT NULL,
          `is_sync_enabled` TINYINT(1) DEFAULT 0,
+         `use_prefix_tasks` TINYINT(1) DEFAULT NULL,
+         `use_prefix_events` TINYINT(1) DEFAULT NULL,
+         `use_teams_status_prefix` TINYINT(1) DEFAULT NULL,
          `sync_months_past` INT DEFAULT NULL,
          `sync_months_future` INT DEFAULT NULL,
          `prefix_tasks` VARCHAR(50) DEFAULT NULL,
@@ -99,6 +111,12 @@ function plugin_ms365sync_install() {
          UNIQUE KEY `users_id` (`users_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query);
+   }
+
+   if ($DB->tableExists($table_users)) {
+      $migration->addField($table_users, 'use_prefix_tasks', 'tinyint(1)', ['value' => null]);
+      $migration->addField($table_users, 'use_prefix_events', 'tinyint(1)', ['value' => null]);
+      $migration->addField($table_users, 'use_teams_status_prefix', 'tinyint(1)', ['value' => null]);
    }
 
    // Tabla de Mapeo de Eventos
@@ -137,6 +155,8 @@ function plugin_ms365sync_install() {
       ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query);
    }
+
+   $migration->executeMigration();
 
    return true;
 }
