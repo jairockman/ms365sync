@@ -3,25 +3,25 @@ include ("../../../inc/includes.php");
 
 // Seguridad de nivel superior
 Session::checkLoginUser();
-Session::checkRight("config", UPDATE);
+PluginMs365syncTenants::checkClassRight(UPDATE);
 
 $tenant = new PluginMs365syncTenants();
 
 if (isset($_POST["add"])) {
-    // En lugar de $tenant->check(), validamos el derecho general de GLPI
-    if (!Session::haveRight("config", UPDATE)) {
+    // Validamos que el usuario tenga permiso de creación/actualización en el plugin
+    if (!PluginMs365syncTenants::canUpdate()) {
         Html::displayRightError();
     }
     $newID = $tenant->add($_POST);
     Html::redirect($tenant->getFormURL($newID));
 }elseif (isset($_POST["update"])) {
-    if (!Session::haveRight("config", UPDATE)) {
+    if (!PluginMs365syncTenants::canUpdate()) {
         Html::displayRightError();
     }
     $tenant->update($_POST);
     Html::back();
 }elseif (isset($_POST["delete"])) {
-    if (!Session::haveRight("config", UPDATE)) {
+    if (!PluginMs365syncTenants::canUpdate()) {
         Html::displayRightError();
     }
     if (isset($_POST['id'])) {
@@ -45,4 +45,3 @@ if (isset($_POST["add"])) {
 
     Html::footer();
 }
-

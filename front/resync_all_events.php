@@ -3,7 +3,7 @@
 include ("../../../inc/includes.php");
 
 // Verificar permisos de administrador
-PluginMs365syncTenants::checkGlobalRight(UPDATE);
+PluginMs365syncTenants::checkClassRight(UPDATE);
 
 $sync = new PluginMs365syncMsGraph();
 

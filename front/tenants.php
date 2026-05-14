@@ -3,7 +3,7 @@
 include ("../../../inc/includes.php");
 
 // Verificamos que el usuario tenga el permiso específico del plugin
-PluginMs365syncTenants::checkGlobalRight(READ);
+PluginMs365syncTenants::checkClassRight(READ);
 
 $config = new PluginMs365syncTenants();
 
