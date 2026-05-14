@@ -81,7 +81,7 @@ class PluginMs365syncUser extends CommonDBTM {
       echo "</td></tr>";
       
       echo "<tr class='tab_bg_1'><td>" . __("Force Re-sync Calendar", "ms365sync") . "</td><td>";
-      echo "<a href='" . Plugin::get  WebDir('ms365sync', false) . "/front/resync_user_events.php?users_id=$users_id' class='btn btn-outline-warning btn-sm' 
+      echo "<a href='" . Plugin::getWebDir('ms365sync', false) . "/front/resync_user_events.php?users_id=$users_id' class='btn btn-outline-warning btn-sm' 
                onclick='return confirm(\"".__("This will force a re-synchronization of all your GLPI events with Outlook. This may take some time. Are you sure?", "ms365sync")."\")'>
                <i class='fas fa-sync-alt'></i> " . __("Re-sync My Events", "ms365sync") . "
             </a>";
