@@ -18,10 +18,10 @@ class PluginMs365syncProfile extends CommonDBTM {
       return true;
    }
 
-   function showForm($profiles_id) {
+   function showForm($ID, array $options = []) {
       global $DB;
 
-      $rights = ProfileRight::getProfileRights($profiles_id, ['plugin_ms365sync_tenant']);
+      $rights = ProfileRight::getProfileRights($ID, ['plugin_ms365sync_tenant']);
       $right  = $rights['plugin_ms365sync_tenant'] ?? 0;
 
       echo "<div class='spaced'>";
