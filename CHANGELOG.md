@@ -5,6 +5,19 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-05-14
+### Added
+- **Orphan Data Prevention**: Implementados hooks `item_purge` para Usuarios, Entidades, Perfiles y Tareas.
+- **ID Collision Safety**: Al eliminar un usuario o entidad, su configuración asociada se borra inmediatamente.
+- **Multi-Entity Support**: Ahora los Tenants se vinculan a entidades específicas de GLPI, permitiendo una gestión aislada por entidad.
+- **Granular Permissions**: Se ha migrado la seguridad de una configuración global a permisos basados en perfiles. Nuevo derecho `plugin_ms365sync_tenant` añadido.
+### Changed
+- **UI Refactoring**: Mejora en los formularios de configuración para incluir selectores de entidad y recursividad.
+### Fixed
+- **Task Duplication**: Corregido error donde las tareas de GLPI sincronizadas con Outlook eran re-importadas como eventos externos, causando duplicidad.
+- **Improved Filtering**: El Cron ahora ignora eventos de Outlook que tienen el metadato de origen de tarea de GLPI.
+- **Uninstall Cleanup**: La desinstalación ahora elimina correctamente los derechos de perfil de la tabla `glpi_profilerights`.
+
 ## [1.0.1] - 2026-05-04
 
 ### Fixed

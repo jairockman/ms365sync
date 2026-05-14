@@ -18,7 +18,15 @@ class PluginMs365syncMsGraph extends CommonDBTM {
          return $this->access_tokens[$domain];
       }
 
-      $result = $DB->request("glpi_plugin_ms365sync_tenants", ['domain' => $domain, 'active' => 1])->current();
+      // Buscar tenant respetando la visibilidad de entidades
+      $result = $DB->request([
+         'FROM'  => 'glpi_plugin_ms365sync_tenants',
+         'WHERE' => [
+            'domain' => $domain,
+            'active' => 1
+         ] + getEntitiesRestrictCriteria('glpi_plugin_ms365sync_tenants', '', '', true)
+      ])->current();
+
       if (!$result) {
          Toolbox::logInFile("ms365sync", "No hay un Tenant activo para el dominio: $domain\n");
          return false;
@@ -466,16 +474,26 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                }
 
                foreach ($response['value'] as $ms_event) {
-                  // 1. Verificación de Instancia (Deduplicación)
+                  $is_from_this_glpi = false;
                   if (isset($ms_event['extensions'])) {
                      foreach ($ms_event['extensions'] as $extension) {
-                        if ($extension['id'] === 'org.glpi.ms365sync' && 
-                            isset($extension['instance_uuid']) && 
-                            $extension['instance_uuid'] !== $instance_uuid) {
-                           // El evento pertenece a otra instancia de GLPI, ignorar.
-                           continue 2; 
+                        if ($extension['id'] === 'org.glpi.ms365sync' && isset($extension['instance_uuid'])) {
+                           if ($extension['instance_uuid'] !== $instance_uuid) {
+                              // El evento pertenece a otra instancia de GLPI, ignorar.
+                              continue 2;
+                           }
+                           $is_from_this_glpi = true;
                         }
                      }
+                  }
+
+                  // 2. Verificar si ya existe en el mapa
+                  $check = $DB->request("glpi_plugin_ms365sync_event_map", ['ms_event_id' => $ms_event['id']])->current();
+
+                  // Si el evento viene de esta instancia de GLPI y NO es un PlanningExternalEvent, 
+                  // significa que es una Tarea (TicketTask, etc.). NO debemos importarla.
+                  if ($is_from_this_glpi && $check && $check['glpi_itemtype'] !== 'PlanningExternalEvent') {
+                     continue;
                   }
 
                   $ms_modified = $this->formatGraphDateToGLPI($ms_event['lastModifiedDateTime']);
@@ -495,8 +513,6 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      $clean_name = mb_substr($clean_name, 0, 247) . '...';
                   }
 
-                  $check = $DB->request("glpi_plugin_ms365sync_event_map", ['ms_event_id' => $ms_event['id']])->current();
-
                   // Si existe un mapeo, verificar que el objeto GLPI todavía existe realmente
                   if ($check) {
                      $item_check = new $check['glpi_itemtype']();
@@ -509,10 +525,10 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                   $input = [
                      'name'         => $clean_name,
                      'text'         => $clean_text,
-                     'users_id'     => $user_id,
-                     'plan'         => [
-                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime']),
-                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'])
+                     'users_id'     => $user_id, // Asignar al usuario GLPI
+                     'plan'         => [ // GLPI espera 'plan' para eventos de planificación
+                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime'], $ms_event['start']['timeZone']),
+                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'], $ms_event['end']['timeZone'])
                      ],
                      'is_recursive' => 1, 
                      'state'        => 0, 
@@ -604,7 +620,10 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       }
       $user_tz = $this->getUserTimezone($users_id);
       try {
-         $dt = new DateTime($date, new DateTimeZone($user_tz));
+         // GLPI almacena internamente en UTC. 
+         // Cargamos la fecha como UTC y luego la convertimos a la zona horaria del usuario para Graph.
+         $dt = new DateTime($date, new DateTimeZone('UTC'));
+         $dt->setTimezone(new DateTimeZone($user_tz));
          return ['dateTime' => $dt->format('Y-m-d\TH:i:s'), 'timeZone' => $user_tz];
       } catch (Exception $e) { return null; }
    }
@@ -615,12 +634,23 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       return $_SESSION['glpitimezone'] ?? date_default_timezone_get();
    }
 
-   public function formatGraphDateToGLPI($graphDate) {
-      if (empty($graphDate)) {return null;}
+   /**
+    * Convierte una fecha y hora de Graph API (con su zona horaria) a un formato compatible con GLPI (UTC).
+    *
+    * @param string $graphDateTime La cadena de fecha y hora de Graph (ej. "2024-05-15T10:00:00").
+    * @param string $graphTimeZone La zona horaria de Graph. Por defecto 'UTC' (para lastModifiedDateTime).
+    * @return string|null La fecha y hora formateada para GLPI en UTC, o null si hay un error.
+    */
+   public function formatGraphDateToGLPI($graphDateTime, $graphTimeZone = 'UTC') {
+      if (empty($graphDateTime)) {return null;}
       try {
-         $date = new \DateTime($graphDate);
-         return $date->format(PLUGIN_MS365SYNC_DATE_FORMAT);
-      } catch (\Exception $e) { return null; }
+         $dt = new \DateTime($graphDateTime, new \DateTimeZone($graphTimeZone));
+         $dt->setTimezone(new \DateTimeZone('UTC')); // Convertir a UTC para el almacenamiento interno de GLPI
+         return $dt->format(PLUGIN_MS365SYNC_DATE_FORMAT);
+      } catch (\Exception $e) {
+         Toolbox::logInFile("ms365sync", "Error al formatear fecha de Graph para GLPI: " . $e->getMessage() . " (DateTime: $graphDateTime, TimeZone: $graphTimeZone)\n");
+         return null;
+      }
    }
 
    private function getUserDefaultEntity($users_id) {
@@ -662,4 +692,35 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       return false;
    }
 
+   /**
+    * Resetea la fecha de última modificación de eventos mapeados para forzar una re-sincronización.
+    *
+    * @param int|null $users_id ID del usuario para resetear sus eventos, o null para todos los eventos.
+    * @return bool True si la operación fue exitosa, false en caso contrario.
+    */
+   public function resetMsLastModified($users_id = null) {
+      global $DB;
+      $table_map = "glpi_plugin_ms365sync_event_map";
+      $conditions = [];
+
+      if ($users_id !== null) {
+         $user_email = $this->getUserEmail($users_id);
+         if (empty($user_email)) {
+            Toolbox::logInFile("ms365sync", "Error: No se encontró email para el usuario ID $users_id al intentar resetear ms_last_modified.\n");
+            return false;
+         }
+         $conditions['ms_user_principal'] = $user_email;
+         $log_scope = "para el usuario $user_email (ID: $users_id)";
+      } else {
+         $log_scope = "para TODOS los eventos de TODOS los usuarios";
+      }
+
+      // Establecer ms_last_modified a NULL para que el cron lo detecte como "modificado"
+      if ($DB->update($table_map, ['ms_last_modified' => null], $conditions)) {
+         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por " . Session::get  LoginUsername() . " (ID: " . Session::getLoginUserID() . ").\n");
+         return true;
+      }
+      Toolbox::logInFile("ms365sync", "Fallo al reiniciar ms_last_modified $log_scope. Ejecutado por " . Session::getLoginUsername() . " (ID: " . Session::getLoginUserID() . ").\n");
+      return false;
+   }
 }

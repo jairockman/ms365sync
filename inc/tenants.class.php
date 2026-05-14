@@ -2,10 +2,14 @@
 
 class PluginMs365syncTenants extends CommonDBTM {
 
-   static $rightname = 'config';
+   static $rightname = 'plugin_ms365sync_tenant';
 
    static function getTypeName($nb = 0) {
       return _n('Microsoft 365 Tenant', 'Microsoft 365 Tenants', $nb, 'ms365sync');
+   }
+
+   function isEntityAssign() {
+      return true;
    }
 
    static function getTable($relative_name = "glpi_plugin_ms365sync_tenants") {
@@ -44,21 +48,36 @@ class PluginMs365syncTenants extends CommonDBTM {
                <i class='fas fa-plus'></i> " . __("Add New Domain/Tenant", "ms365sync") . "
             </a>";
       echo "</div>";
+      
+      echo "<div class='mb-2'>";
+      echo "<a class='v-middle btn btn-danger' href='" . Plugin::getWebDir('ms365sync', false) . "/front/resync_all_events.php' 
+               onclick='return confirm(\"".__("This will force a re-synchronization of ALL GLPI events for ALL users with Outlook. This may take a long time and consume resources. Are you sure?", "ms365sync")."\")'>
+               <i class='fas fa-sync-alt'></i> " . __("Force Re-sync ALL Events (Admin)", "ms365sync") . "
+            </a>";
+      echo "</div>";
 
       echo "<table class='tab_cadre_fixehov'>";
       echo "<tr>
                <th>".__("Name")."</th>
                <th>".__("Domain", "ms365sync")."</th>
                <th>".__("Tenant ID", "ms365sync")."</th>
+               <th>".__("Entity")."</th>
                <th>".__("Status")."</th>
                <th>".__("Actions")."</th>
             </tr>";
 
-      foreach ($DB->request($table) as $data) {
+      // Filtrar Tenants por la entidad actual y jerarquía
+      $iterator = $DB->request([
+         'FROM'  => $table,
+         'WHERE' => getEntitiesRestrictCriteria($table, '', '', true)
+      ]);
+
+      foreach ($iterator as $data) {
          echo "<tr class='tab_bg_1'>";
          echo "<td>" . $data['name'] . "</td>";
          echo "<td><b>" . $data['domain'] . "</b></td>";
          echo "<td>" . $data['tenant_id'] . "</td>";
+         echo "<td>" . Dropdown::getDropdownName("glpi_entities", $data['entities_id']) . "</td>";
          echo "<td>" . ($data['active'] ? __("Active") : __("Inactive")) . "</td>";
          echo "<td>
                      <a href='" . $this->getFormURL() . "?id=" . $data['id'] . "' class='btn btn-sm btn-info' title='".__("Edit")."'>
@@ -98,6 +117,14 @@ class PluginMs365syncTenants extends CommonDBTM {
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Connection Settings", "ms365sync") . "</b></td></tr>";
       echo "<tr class='tab_bg_1'><td>".__("Descriptive Name", "ms365sync")."</td>";
       echo "<td><input type='text' name='name' value='" . ($this->fields['name'] ?? '') . "' class='form-control' required></td></tr>";
+
+      echo "<tr class='tab_bg_1'><td>" . __('Entity') . "</td><td>";
+      Entity::dropdown(['value' => $this->fields['entities_id'] ?? $_SESSION['glpiactive_entity']]);
+      echo "</td></tr>";
+
+      echo "<tr class='tab_bg_1'><td>" . __('Child entities') . "</td><td>";
+      Dropdown::showYesNo('is_recursive', $this->fields['is_recursive'] ?? 0);
+      echo "</td></tr>";
       
       echo "<tr class='tab_bg_1'><td>".__("Domain", "ms365sync")." (ej: miempresa.com)</td>";
       echo "<td><input type='text' name='domain' value='" . ($this->fields['domain'] ?? '') . "' class='form-control' required></td></tr>";

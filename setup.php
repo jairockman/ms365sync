@@ -13,6 +13,11 @@ function plugin_init_ms365sync() {
 
    if (Plugin::isPluginActive('ms365sync')) {
 
+      // Registro de permisos en perfiles
+      Plugin::registerClass('PluginMs365syncProfile', [
+         'addtabon' => ['Profile']
+      ]);
+
       Plugin::registerClass('PluginMs365syncUser', [
          'addtabon' => ['User', 'Preference']
       ]);
@@ -75,12 +80,15 @@ function plugin_ms365sync_install() {
          `use_prefix_tasks` TINYINT(1) DEFAULT 1,
          `use_prefix_events` TINYINT(1) DEFAULT 1,
          `use_teams_status_prefix` TINYINT(1) DEFAULT 0,
+         `entities_id` INT UNSIGNED NOT NULL DEFAULT 0,
+         `is_recursive` TINYINT(1) NOT NULL DEFAULT 0,
          `sync_months_past` INT DEFAULT 1,
          `sync_months_future` INT DEFAULT 1,
          `prefix_tasks` VARCHAR(50) DEFAULT 'Task: ',
          `prefix_events` VARCHAR(50) DEFAULT 'Event: ',
          `teams_status_msg` VARCHAR(255) DEFAULT 'Working on: ',
-         PRIMARY KEY (`id`)
+         PRIMARY KEY (`id`),
+         KEY `entities_id` (`entities_id`)
       ) ENGINE=InnoDB DEFAULT CHARSET={$default_charset} COLLATE={$default_collation} ROW_FORMAT=DYNAMIC;";
       $DB->query($query);
    }
@@ -89,6 +97,8 @@ function plugin_ms365sync_install() {
       $migration->addField($table_tenants, 'use_prefix_tasks', 'tinyint(1)', ['value' => 1]);
       $migration->addField($table_tenants, 'use_prefix_events', 'tinyint(1)', ['value' => 1]);
       $migration->addField($table_tenants, 'use_teams_status_prefix', 'tinyint(1)', ['value' => 0]);
+      $migration->addField($table_tenants, 'entities_id', 'int unsigned', ['value' => 0]);
+      $migration->addField($table_tenants, 'is_recursive', 'tinyint(1)', ['value' => 0]);
    }
 
    // Tabla de Usuarios
@@ -157,6 +167,10 @@ function plugin_ms365sync_install() {
    }
 
    $migration->executeMigration();
+
+   // Inicializar los nuevos derechos de perfil para que aparezcan en la interfaz
+   // Esto permite que el administrador asigne el permiso 'plugin_ms365sync_tenant' a los perfiles
+   ProfileRight::addProfileRights(['plugin_ms365sync_tenant']);
 
    return true;
 }

@@ -2,8 +2,8 @@
 // Incluimos el cargador de GLPI (esto carga todas las clases y verifica la sesión)
 include ("../../../inc/includes.php");
 
-// Verificamos que el usuario tenga permisos de configuración (Administrador)
-Session::checkRight("config", UPDATE);
+// Verificamos que el usuario tenga el permiso específico del plugin
+PluginMs365syncTenants::checkGlobalRight(READ);
 
 $config = new PluginMs365syncTenants();
 
@@ -17,4 +17,3 @@ $config->showFormConfig();
 //Search::show('PluginMs365syncTenants');
 
 Html::footer();
-

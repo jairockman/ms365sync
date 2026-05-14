@@ -83,3 +83,39 @@ function plugin_ms365sync_hook_delete_task($item) {
       }
    }
 }
+
+/**
+ * Hook ejecutado cuando un usuario es purgado (borrado definitivo).
+ * Limpia todas las configuraciones y mapeos asociados para evitar colisiones de ID.
+ */
+function plugin_ms365sync_hook_purge_user($item) {
+   global $DB;
+   $uid = (int)$item->fields['id'];
+   
+   // Limpiar configuración de sincronización del usuario
+   $DB->delete("glpi_plugin_ms365sync_users", ['users_id' => $uid]);
+   
+   // Limpiar estados de monitoreo de Actualtime
+   $DB->delete("glpi_plugin_ms365sync_actualtime_state", ['users_id' => $uid]);
+   
+   Toolbox::logInFile("ms365sync", "Datos del plugin purgados para el usuario ID: $uid\n", true);
+}
+
+/**
+ * Hook ejecutado cuando una entidad es purgada.
+ */
+function plugin_ms365sync_hook_purge_entity($item) {
+   global $DB;
+   $DB->delete("glpi_plugin_ms365sync_tenants", ['entities_id' => $item->fields['id']]);
+   Toolbox::logInFile("ms365sync", "Tenants purgados para la entidad ID: " . $item->fields['id'] . "\n", true);
+}
+
+/**
+ * Hook ejecutado cuando un perfil es purgado.
+ */
+function plugin_ms365sync_hook_purge_profile($item) {
+   global $DB;
+   // GLPI Core limpia glpi_profilerights, pero nos aseguramos de loguear la acción
+   // para auditoría del plugin.
+   Toolbox::logInFile("ms365sync", "Derechos del plugin purgados para el perfil ID: " . $item->fields['id'] . "\n", true);
+}

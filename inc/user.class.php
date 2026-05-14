@@ -79,6 +79,13 @@ class PluginMs365syncUser extends CommonDBTM {
          echo "<p><small class='text-muted'>" . __("Required for Presence and Status updates", "ms365sync") . "</small></p>";
       }
       echo "</td></tr>";
+      
+      echo "<tr class='tab_bg_1'><td>" . __("Force Re-sync Calendar", "ms365sync") . "</td><td>";
+      echo "<a href='" . Plugin::get  WebDir('ms365sync', false) . "/front/resync_user_events.php?users_id=$users_id' class='btn btn-outline-warning btn-sm' 
+               onclick='return confirm(\"".__("This will force a re-synchronization of all your GLPI events with Outlook. This may take some time. Are you sure?", "ms365sync")."\")'>
+               <i class='fas fa-sync-alt'></i> " . __("Re-sync My Events", "ms365sync") . "
+            </a>";
+      echo "<p><small class='text-muted'>" . __("Use this if your Outlook calendar events are not showing correctly in GLPI.", "ms365sync") . "</small></p></td></tr>";
 
       // Prefijos Personalizados
       echo "<tr class='headerrow'><td colspan='2'><b>" . __("Personalized Prefixes", "ms365sync") . "</b></td></tr>";
