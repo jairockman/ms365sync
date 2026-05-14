@@ -3,7 +3,9 @@ include ("../../../inc/includes.php");
 
 // Seguridad de nivel superior
 Session::checkLoginUser();
-PluginMs365syncTenants::checkClassRight(UPDATE);
+if (!PluginMs365syncTenants::canUpdate()) {
+   Html::displayRightError();
+}
 
 $tenant = new PluginMs365syncTenants();
 

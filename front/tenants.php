@@ -3,7 +3,9 @@
 include ("../../../inc/includes.php");
 
 // Verificamos que el usuario tenga el permiso específico del plugin
-PluginMs365syncTenants::checkClassRight(READ);
+if (!PluginMs365syncTenants::canView()) {
+   Html::displayRightError();
+}
 
 $config = new PluginMs365syncTenants();
 
