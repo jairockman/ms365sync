@@ -2,14 +2,14 @@
 
 class PluginMs365syncProfile extends CommonDBTM {
 
-   static function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
+   function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
       if ($item->getType() == 'Profile') {
          return __('MS365 Sync', 'ms365sync');
       }
       return '';
    }
 
-   static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
+   function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
       if ($item->getType() == 'Profile') {
          $ID = $item->getID();
          $prof = new self();
