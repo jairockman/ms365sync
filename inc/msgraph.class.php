@@ -717,7 +717,7 @@ class PluginMs365syncMsGraph extends CommonDBTM {
 
       // Establecer ms_last_modified a NULL para que el cron lo detecte como "modificado"
       if ($DB->update($table_map, ['ms_last_modified' => null], $conditions)) {
-         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por " . Session::get  LoginUsername() . " (ID: " . Session::getLoginUserID() . ").\n");
+         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por " . Session::getLoginUsername() . " (ID: " . Session::getLoginUserID() . ").\n");
          return true;
       }
       Toolbox::logInFile("ms365sync", "Fallo al reiniciar ms_last_modified $log_scope. Ejecutado por " . Session::getLoginUsername() . " (ID: " . Session::getLoginUserID() . ").\n");
