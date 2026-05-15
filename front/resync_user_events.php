@@ -23,7 +23,7 @@ if ($users_id > 0) {
     Session::addMessageAfterRedirect(__("Invalid user ID for re-synchronization.", "ms365sync"), true, ERROR);
 }
 
-// Redirigir de vuelta al perfil del usuario
-Html::redirect(Toolbox::getItemTypeFormURL('User') . "?id=" . Session::getLoginUserID() . "&forcetab=PluginMs365syncUser$1");
+// Redirigir de vuelta al perfil del usuario procesado de forma dinámica
+Html::redirect(User::getFormURLWithID($users_id) . "&forcetab=PluginMs365syncUser$1");
 
 ?>

@@ -50,7 +50,7 @@ class PluginMs365syncTenants extends CommonDBTM {
       echo "</div>";
       
       echo "<div class='mb-2'>";
-      echo "<a class='v-middle btn btn-danger' href='" . Plugin::getWebDir('ms365sync', false) . "/front/resync_all_events.php' 
+      echo "<a class='v-middle btn btn-danger' href='" . Plugin::getWebDir('ms365sync', true) . "/front/resync_all_events.php' 
                onclick='return confirm(\"".__("This will force a re-synchronization of ALL GLPI events for ALL users with Outlook. This may take a long time and consume resources. Are you sure?", "ms365sync")."\")'>
                <i class='fas fa-sync-alt'></i> " . __("Force Re-sync ALL Events (Admin)", "ms365sync") . "
             </a>";

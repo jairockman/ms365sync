@@ -39,7 +39,7 @@ class PluginMs365syncUser extends CommonDBTM {
    }
 
    public function showFormForUser($users_id) {
-      global $DB;
+      global $DB, $CFG_GLPI;
       
       if (!$this->getFromDBByCrit(['users_id' => $users_id])) {
          $this->fields = [

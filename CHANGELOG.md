@@ -13,8 +13,11 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - **Granular Permissions**: Se ha migrado la seguridad de una configuración global a permisos basados en perfiles. Nuevo derecho `plugin_ms365sync_tenant` añadido.
 - **Matrix Permissions UI**: Los permisos ahora se muestran con el formato estándar de matriz (Read/Update/Create/Delete/Purge).
 - **Auto-Admin Privileges**: Se asignan permisos completos automáticamente al perfil Super-Admin durante la instalación.
+- **Dynamic Path Support**: Implementado soporte para instalaciones tanto en `plugins/` como en `marketplace/` usando `Plugin::getWebDir()`.
 ### Changed
 - **UI Refactoring**: Mejora en los formularios de configuración para incluir selectores de entidad y recursividad.
+### Fixed
+- **Session Compatibility**: Corregido error en el método de obtención del nombre de usuario en logs.
 - Versión de mantenimiento para estabilidad de permisos.
 ### Fixed
 - **Task Duplication**: Corregido error donde las tareas de GLPI sincronizadas con Outlook eran re-importadas como eventos externos, causando duplicidad.
