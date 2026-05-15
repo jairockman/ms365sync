@@ -34,7 +34,8 @@ class PluginMs365syncProfile extends CommonDBTM {
          PURGE  => __('Purge')
       ];
 
-      Profile::displayRightsChoiceMatrix($matrix_rights, [
+      $profile = new Profile();
+      $profile->displayRightsChoiceMatrix($matrix_rights, [
          'plugin_ms365sync_tenant' => $right
       ], [
          'title' => __('MS365 Sync Permissions', 'ms365sync'),

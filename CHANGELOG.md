@@ -23,6 +23,8 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - **Database Integrity**: Corregido error de "Duplicate entry" en `glpi_profilerights` durante la instalación/actualización.
 - **UI Improvements**: Mejorado el selector de permisos en el Perfil para usar el componente estándar de GLPI con etiquetas legibles.
 - Corregida la firma de métodos de pestaña para compatibilidad estricta con PHP 8.1+.
+- **Profile UI**: Corregido error de llamada estática a `displayRightsChoiceMatrix` en la gestión de permisos.
+- **Versioning**: Incremento de versión para reflejar cambios en seguridad y UI.
 
 ## [1.0.1] - 2026-05-04
 
