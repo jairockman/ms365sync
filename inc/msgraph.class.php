@@ -18,13 +18,13 @@ class PluginMs365syncMsGraph extends CommonDBTM {
          return $this->access_tokens[$domain];
       }
 
-      // Buscar tenant respetando la visibilidad de entidades
+      // Buscar tenant de forma global para el sistema (Cron/API)
       $result = $DB->request([
          'FROM'  => 'glpi_plugin_ms365sync_tenants',
          'WHERE' => [
             'domain' => $domain,
             'active' => 1
-         ] + getEntitiesRestrictCriteria('glpi_plugin_ms365sync_tenants', '', '', true)
+         ]
       ])->current();
 
       if (!$result) {

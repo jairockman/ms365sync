@@ -17,6 +17,6 @@ if ($sync->resetMsLastModified()) {
 }
 
 // Redirigir de vuelta a la página de configuración del plugin
-Html::redirect(Plugin::getWebDir('ms365sync', false) . "/front/tenants.php");
+Html::redirect(Plugin::getWebDir('ms365sync', true) . "/front/tenants.php");
 
 ?>

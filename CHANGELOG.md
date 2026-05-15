@@ -25,6 +25,9 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - Corregida la firma de métodos de pestaña para compatibilidad estricta con PHP 8.1+.
 - **Profile UI**: Corregido error de llamada estática a `displayRightsChoiceMatrix` en la gestión de permisos.
 - **Versioning**: Incremento de versión para reflejar cambios en seguridad y UI.
+- **404 Errors**: Corregidas las rutas de re-sincronización usando URLs absolutas mediante `Plugin::getWebDir(..., true)`.
+- **Cron Fix**: Eliminada restricción de entidad en la obtención de tokens de acceso para permitir ejecuciones de sistema en background.
+- **Versioning**: Incremento a v1.0.3 para incluir correcciones críticas de estabilidad.
 
 ## [1.0.1] - 2026-05-04
 
