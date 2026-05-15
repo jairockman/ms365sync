@@ -172,6 +172,11 @@ function plugin_ms365sync_install() {
    $right = 'plugin_ms365sync_tenant';
    if (countElementsInTable('glpi_profilerights', ['name' => $right]) == 0) {
       ProfileRight::addProfileRights([$right]);
+      // Otorgar todos los permisos al Super-Admin (ID 1) por defecto
+      $DB->update('glpi_profilerights', 
+         ['rights' => READ | UPDATE | CREATE | DELETE | PURGE], 
+         ['profiles_id' => 1, 'name' => $right]
+      );
    }
 
    return true;
