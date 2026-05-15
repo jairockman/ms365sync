@@ -6,6 +6,7 @@ include ("../../../inc/includes.php");
 Session::checkLoginUser();
 
 $users_id = (int) ($_GET['users_id'] ?? 0);
+$is_preference = (int) ($_GET['_is_preference'] ?? 0);
 
 // El usuario solo puede re-sincronizar sus propios eventos, a menos que tenga permisos de gestión de tenants
 if ($users_id !== Session::getLoginUserID() && !PluginMs365syncTenants::canUpdate()) {
@@ -23,7 +24,12 @@ if ($users_id > 0) {
     Session::addMessageAfterRedirect(__("Invalid user ID for re-synchronization.", "ms365sync"), true, ERROR);
 }
 
-// Redirigir de vuelta al perfil del usuario procesado de forma dinámica
-Html::redirect(User::getFormURLWithID($users_id) . "&forcetab=PluginMs365syncUser$1");
+if ($is_preference) {
+    // Si el origen es preference.php, regresamos ahí
+    Html::redirect($CFG_GLPI["root_doc"] . "/front/preference.php?forcetab=PluginMs365syncUser$1");
+} else {
+    // De lo contrario, regresamos al perfil del usuario
+    Html::redirect(User::getFormURLWithID($users_id) . "&forcetab=PluginMs365syncUser$1");
+}
 
 ?>

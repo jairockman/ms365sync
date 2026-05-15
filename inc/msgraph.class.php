@@ -529,9 +529,9 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      'text'         => $clean_text,
                      'users_id'     => $user_id, // Asignar al usuario GLPI
                      'plan'         => [ // GLPI espera 'plan' para eventos de planificación
-                        // Guardamos la hora LOCAL de Microsoft para que el calendario de GLPI no sufra desfases
-                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime'], $ms_event['start']['timeZone'], false),
-                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'], $ms_event['end']['timeZone'], false)
+                        // Convertimos la hora de Graph a la zona horaria específica del usuario en GLPI
+                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime'], $ms_event['start']['timeZone'], false, $user_id),
+                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'], $ms_event['end']['timeZone'], false, $user_id)
                      ],
                      'is_recursive' => 1, 
                      'state'        => 0, 
@@ -647,14 +647,19 @@ class PluginMs365syncMsGraph extends CommonDBTM {
     * @param string $graphDateTime La cadena de fecha y hora de Graph (ej. "2024-05-15T10:00:00").
     * @param string $graphTimeZone La zona horaria de Graph. Por defecto 'UTC' (para lastModifiedDateTime).
     * @param bool $convertToUTC Si es true, convierte a UTC (para metadatos). Si false, mantiene local (para planning).
+    * @param int|null $users_id ID del usuario para obtener su zona horaria específica si convertToUTC es false.
     * @return string|null
     */
-   public function formatGraphDateToGLPI($graphDateTime, $graphTimeZone = 'UTC', $convertToUTC = true) {
+   public function formatGraphDateToGLPI($graphDateTime, $graphTimeZone = 'UTC', $convertToUTC = true, $users_id = null) {
       if (empty($graphDateTime)) {return null;}
       try {
          $dt = new \DateTime($graphDateTime, new \DateTimeZone($graphTimeZone));
          if ($convertToUTC) {
             $dt->setTimezone(new \DateTimeZone('UTC'));
+         } else if ($users_id !== null) {
+            // Si no es UTC, forzamos la conversión a la zona horaria del usuario en GLPI
+            $user_tz = $this->getUserTimezone($users_id);
+            $dt->setTimezone(new \DateTimeZone($user_tz));
          }
          return $dt->format(PLUGIN_MS365SYNC_DATE_FORMAT);
       } catch (\Exception $e) {

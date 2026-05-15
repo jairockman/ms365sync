@@ -33,12 +33,12 @@ class PluginMs365syncUser extends CommonDBTM {
       if ($item->getType() == 'User') {
          $config->showFormForUser($item->getID());
       } else if ($item->getType() == 'Preference') {
-         $config->showFormForUser(Session::getLoginUserID());
+         $config->showFormForUser(Session::getLoginUserID(), true);
       }
       return true;
    }
 
-   public function showFormForUser($users_id) {
+   public function showFormForUser($users_id, $is_preference = false) {
       global $DB, $CFG_GLPI;
       
       if (!$this->getFromDBByCrit(['users_id' => $users_id])) {
@@ -81,7 +81,8 @@ class PluginMs365syncUser extends CommonDBTM {
       echo "</td></tr>";
       
       echo "<tr class='tab_bg_1'><td>" . __("Force Re-sync Calendar", "ms365sync") . "</td><td>";
-      echo "<a href='" . $CFG_GLPI["root_doc"] . "/" . Plugin::getWebDir('ms365sync', false) . "/front/resync_user_events.php?users_id=$users_id' class='btn btn-outline-warning btn-sm' 
+      $pref_param = $is_preference ? "&_is_preference=1" : "";
+      echo "<a href='" . $CFG_GLPI["root_doc"] . "/" . Plugin::getWebDir('ms365sync', false) . "/front/resync_user_events.php?users_id=$users_id$pref_param' class='btn btn-outline-warning btn-sm' 
                onclick='return confirm(\"".__("This will force a re-synchronization of all your GLPI events with Outlook. This may take some time. Are you sure?", "ms365sync")."\")'>
                <i class='fas fa-sync-alt'></i> " . __("Re-sync My Events", "ms365sync") . "
             </a>";
