@@ -168,9 +168,11 @@ function plugin_ms365sync_install() {
 
    $migration->executeMigration();
 
-   // Inicializar los nuevos derechos de perfil para que aparezcan en la interfaz
-   // Esto permite que el administrador asigne el permiso 'plugin_ms365sync_tenant' a los perfiles
-   ProfileRight::addProfileRights(['plugin_ms365sync_tenant']);
+   // Inicializar los nuevos derechos de perfil si no existen para evitar errores de duplicado
+   $right = 'plugin_ms365sync_tenant';
+   if (countElementsInTable('glpi_profilerights', ['name' => $right]) == 0) {
+      ProfileRight::addProfileRights([$right]);
+   }
 
    return true;
 }

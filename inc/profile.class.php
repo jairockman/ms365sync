@@ -31,11 +31,17 @@ class PluginMs365syncProfile extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Tenant Management', 'ms365sync') . "</td>";
       echo "<td>";
-      Profile::dropdownRights(['plugin_ms365sync_tenant'], 'plugin_ms365sync_tenant', $right, [
-         'have_read'   => true,
-         'have_write'  => true,
-         'have_create' => true,
-         'have_delete' => true,
+      
+      // Selector estándar de GLPI con etiquetas amigables
+      Profile::dropdownRight([
+         'name'   => 'plugin_ms365sync_tenant',
+         'value'  => $right,
+         'rights' => [
+            READ   => __('Read'),
+            UPDATE => __('Update'),
+            CREATE => __('Create'),
+            DELETE => __('Delete'),
+         ]
       ]);
       echo "</td></tr>";
 
