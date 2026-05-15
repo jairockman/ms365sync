@@ -727,17 +727,30 @@ class PluginMs365syncMsGraph extends CommonDBTM {
          $conditions['ms_user_principal'] = $user_email;
          $log_scope = "para el usuario $user_email (ID: $users_id)";
       } else {
-         $conditions = [1 => 1]; // Permite actualizar todos los registros sin disparar el error de seguridad de GLPI
+         $conditions = [1 => 1];
          $log_scope = "para TODOS los eventos de TODOS los usuarios";
       }
 
-      // Establecer ms_last_modified a NULL para que el cron lo detecte como "modificado"
-      if ($DB->update($table_map, ['ms_last_modified' => null], $conditions)) {
-         $exec_user = $_SESSION['glpiname'] ?? 'system';
-         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por $exec_user (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
-         return true;
+      $iterator = $DB->getIterator($table_map, $conditions);
+      foreach ($iterator as $row) {
+         if ($row['glpi_itemtype'] === 'PlanningExternalEvent') {
+            // Para eventos externos, los borramos para que se recreen con la zona horaria correcta
+            $ext_event = new PlanningExternalEvent();
+            if ($ext_event->getFromDB($row['glpi_items_id'])) {
+               $ext_event->delete(['id' => $row['glpi_items_id']], true); // true = purgar de la DB
+            }
+            // Borramos el mapeo para que sea tratado como un evento totalmente nuevo
+            $DB->delete($table_map, ['id' => $row['id']]);
+         } else {
+            // Para tareas (TicketTask, etc.), solo reseteamos el modificado para forzar update()
+            // ya que no podemos borrar el objeto original de GLPI.
+            $DB->update($table_map, ['ms_last_modified' => null], ['id' => $row['id']]);
+         }
       }
-      Toolbox::logInFile("ms365sync", "Fallo al reiniciar ms_last_modified $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
-      return false;
+
+      $exec_user = $_SESSION['glpiname'] ?? 'system';
+      Toolbox::logInFile("ms365sync", "Re-sincronización (limpieza selectiva) exitosa $log_scope. Ejecutado por $exec_user.\n");
+      
+      return true;
    }
 }

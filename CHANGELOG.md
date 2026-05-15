@@ -18,6 +18,9 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Fixed
 - **Timezone Handling**: Los eventos externos ahora se almacenan en la zona horaria local del usuario (America/Guayaquil) en la base de datos de GLPI para evitar desfases en el calendario, mientras que los metadatos de sincronización permanecen en UTC.
 - **Session Compatibility**: Eliminadas llamadas a métodos inexistentes `Session::getLoginName()` y `getLoginUsername()`; se utiliza la superglobal `$_SESSION['glpiname']` para garantizar compatibilidad con GLPI 10.
+- **Selective Re-sync**: La re-sincronización ahora purga los `PlanningExternalEvent` de la base de datos para garantizar una recreación limpia con zonas horarias correctas.
+- **Preference Redirect**: Corregida la redirección tras re-sincronizar desde la pestaña de Preferencias del usuario.
+- **Timezone Correction**: Implementada conversión forzada a la zona horaria local del usuario (America/Guayaquil) antes de guardar en la DB de GLPI.
 - **Database UPDATE Safety**: Corregido error `Cannot run an UPDATE query without WHERE clause` al forzar re-sincronización global añadiendo condición por defecto.
 - **Path Stability**: Corregidos errores 404 en botones de re-sincronización asegurando rutas absolutas desde la raíz web de GLPI.
 - **Dynamic Path Support**: Implementado soporte para instalaciones tanto en `plugins/` como en `marketplace/` usando `Plugin::getWebDir()`.
@@ -30,10 +33,8 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - **UI Improvements**: Mejorado el selector de permisos en el Perfil para usar el componente estándar de GLPI con etiquetas legibles.
 - Corregida la firma de métodos de pestaña para compatibilidad estricta con PHP 8.1+.
 - **Profile UI**: Corregido error de llamada estática a `displayRightsChoiceMatrix` en la gestión de permisos.
-- **Versioning**: Incremento de versión para reflejar cambios en seguridad y UI.
 - **404 Errors**: Corregidas las rutas de re-sincronización usando URLs absolutas mediante `Plugin::getWebDir(..., true)`.
-- **Cron Fix**: Eliminada restricción de entidad en la obtención de tokens de acceso para permitir ejecuciones de sistema en background.
-- **Versioning**: Incremento a v1.0.3 para incluir correcciones críticas de estabilidad.
+ - **Cron Access**: Eliminada restricción de entidad en la obtención de tokens de aplicación para permitir ejecuciones de sistema (Cron).
 
 ## [1.0.1] - 2026-05-04
 
