@@ -19,45 +19,47 @@ class PluginMs365syncProfile extends CommonDBTM {
    }
 
    function showForm($ID, array $options = []) {
-      global $DB;
-
-      $rights = ProfileRight::getProfileRights($ID, ['plugin_ms365sync_tenant']);
-      $right  = $rights['plugin_ms365sync_tenant'] ?? 0;
-
-      echo "<div class='spaced'>";
-      
-      $matrix_rights = [
-         READ   => __('Read'),
-         UPDATE => __('Update'),
-         CREATE => __('Create'),
-         DELETE => __('Delete'),
-         PURGE  => __('Purge')
-      ];
-
       $profile = new Profile();
-      $profile->displayRightsChoiceMatrix($matrix_rights, [
-         'plugin_ms365sync_tenant' => $right
-      ], [
-         'title' => __('MS365 Sync Permissions', 'ms365sync'),
-         'row_labels' => [
-            'plugin_ms365sync_tenant' => __('Tenant Management', 'ms365sync')
-         ]
+      $profile->getFromDB($ID);
+
+      $canedit = Session::haveRight('profile', UPDATE);
+      $rights  = $this->getAllRights();
+
+      echo "<div class='firstbloc'>";
+      if ($canedit) {
+         echo "<form method='post' action='" . $profile->getFormURL() . "'>";
+      }
+
+      $profile->displayRightsChoiceMatrix($rights, [
+         'canedit' => $canedit,
+         'title'   => __('MS365 Sync Permissions', 'ms365sync')
       ]);
 
-      echo "<div class='center mt-2'>";
-      echo "<input type='submit' name='update' value=\"" . _sx('button', 'Save') . "\" class='btn btn-primary'>";
-      echo "</div>";
+      if ($canedit) {
+         echo "<div class='center mt-2'>";
+         echo Html::hidden('id', ['value' => $ID]);
+         echo Html::submit(_sx('button', 'Save'), ['name' => 'update', 'class' => 'btn btn-primary']);
+         echo "</div>";
+         Html::closeForm();
+      }
       echo "</div>";
    }
 
-   static function getAllRights() {
-      return [
+   static function getAllRights($all = false) {
+      $rights = [
          [
-            'rights'    => ['plugin_ms365sync_tenant' => READ | UPDATE | CREATE | DELETE | PURGE],
-            'label'     => __('MS365 Sync', 'ms365sync'),
-            'field'     => 'plugin_ms365sync_tenant',
-            'class'     => 'PluginMs365syncTenants'
+            'itemtype' => 'PluginMs365syncTenants',
+            'label'    => __('Tenant Management', 'ms365sync'),
+            'field'    => 'plugin_ms365sync_tenant',
+            'rights'   => [
+               READ   => __('Read'),
+               UPDATE => __('Update'),
+               CREATE => __('Create'),
+               DELETE => __('Delete'),
+               PURGE  => __('Purge')
+            ]
          ]
       ];
+      return $rights;
    }
 }
