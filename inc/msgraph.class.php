@@ -288,9 +288,10 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       // Fechas
       $begin_raw = $item->fields['begin'] ?? ($item->fields['date'] ?? null);
       $actiontime = intval($item->fields['actiontime'] ?? 3600);
-      $start = $this->formatDateTimeForGraph($begin_raw, $tech_id);
+      $is_event = in_array($itemType, ['PlanningExternalEvent', 'PlanningEvent']);
+      $start = $this->formatDateTimeForGraph($begin_raw, $tech_id, !$is_event);
       $end_val = $item->fields['end'] ?? date(PLUGIN_MS365SYNC_DATE_FORMAT, strtotime($begin_raw) + $actiontime);
-      $end = $this->formatDateTimeForGraph($end_val, $tech_id);
+      $end = $this->formatDateTimeForGraph($end_val, $tech_id, !$is_event);
 
       // Seguridad: Si no hay fechas válidas, no podemos sincronizar (evita HTTP 400)
       if (empty($start) || empty($end)) {
@@ -496,7 +497,8 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      continue;
                   }
 
-                  $ms_modified = $this->formatGraphDateToGLPI($ms_event['lastModifiedDateTime']);
+                  // Metadatos de sincronización se guardan en UTC
+                  $ms_modified = $this->formatGraphDateToGLPI($ms_event['lastModifiedDateTime'], 'UTC', true);
                   $ms_body = $ms_event['body']['content'] ?? '';
                   
                   // Seguridad: Decodificar entidades HTML y limpiar tags para el texto plano
@@ -527,8 +529,9 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      'text'         => $clean_text,
                      'users_id'     => $user_id, // Asignar al usuario GLPI
                      'plan'         => [ // GLPI espera 'plan' para eventos de planificación
-                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime'], $ms_event['start']['timeZone']),
-                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'], $ms_event['end']['timeZone'])
+                        // Guardamos la hora LOCAL tal cual viene de Graph para que GLPI la muestre correctamente
+                        'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime'], $ms_event['start']['timeZone'], false),
+                        'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'], $ms_event['end']['timeZone'], false)
                      ],
                      'is_recursive' => 1, 
                      'state'        => 0, 
@@ -614,15 +617,19 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       return $email;
    }
 
-   public function formatDateTimeForGraph($date, $users_id) {
+   public function formatDateTimeForGraph($date, $users_id, $is_utc_in_db = true) {
       if (empty($date) || $date == 'NULL') {
          return null;
       }
       $user_tz = $this->getUserTimezone($users_id);
       try {
-         // GLPI almacena internamente en UTC. 
-         // Cargamos la fecha como UTC y luego la convertimos a la zona horaria del usuario para Graph.
-         $dt = new DateTime($date, new DateTimeZone('UTC'));
+         if ($is_utc_in_db) {
+            // Para tareas (TicketTask, etc.) que se almacenan en UTC en la DB de GLPI
+            $dt = new DateTime($date, new DateTimeZone('UTC'));
+         } else {
+            // Para PlanningExternalEvent/PlanningEvent que se almacenan en la zona horaria local en la DB de GLPI
+            $dt = new DateTime($date, new DateTimeZone($user_tz));
+         }
          $dt->setTimezone(new DateTimeZone($user_tz));
          return ['dateTime' => $dt->format('Y-m-d\TH:i:s'), 'timeZone' => $user_tz];
       } catch (Exception $e) { return null; }
@@ -639,13 +646,16 @@ class PluginMs365syncMsGraph extends CommonDBTM {
     *
     * @param string $graphDateTime La cadena de fecha y hora de Graph (ej. "2024-05-15T10:00:00").
     * @param string $graphTimeZone La zona horaria de Graph. Por defecto 'UTC' (para lastModifiedDateTime).
-    * @return string|null La fecha y hora formateada para GLPI en UTC, o null si hay un error.
+    * @param bool $convertToUTC Si es true, convierte a UTC. Si false, mantiene la zona horaria original.
+    * @return string|null La fecha y hora formateada para GLPI, o null si hay un error.
     */
-   public function formatGraphDateToGLPI($graphDateTime, $graphTimeZone = 'UTC') {
+   public function formatGraphDateToGLPI($graphDateTime, $graphTimeZone = 'UTC', $convertToUTC = true) {
       if (empty($graphDateTime)) {return null;}
       try {
          $dt = new \DateTime($graphDateTime, new \DateTimeZone($graphTimeZone));
-         $dt->setTimezone(new \DateTimeZone('UTC')); // Convertir a UTC para el almacenamiento interno de GLPI
+         if ($convertToUTC) {
+            $dt->setTimezone(new \DateTimeZone('UTC')); // Convertir a UTC para el almacenamiento interno de GLPI
+         }
          return $dt->format(PLUGIN_MS365SYNC_DATE_FORMAT);
       } catch (\Exception $e) {
          Toolbox::logInFile("ms365sync", "Error al formatear fecha de Graph para GLPI: " . $e->getMessage() . " (DateTime: $graphDateTime, TimeZone: $graphTimeZone)\n");
@@ -718,10 +728,10 @@ class PluginMs365syncMsGraph extends CommonDBTM {
 
       // Establecer ms_last_modified a NULL para que el cron lo detecte como "modificado"
       if ($DB->update($table_map, ['ms_last_modified' => null], $conditions)) {
-         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . Session::getLoginUserID() . ").\n");
+         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
          return true;
       }
-      Toolbox::logInFile("ms365sync", "Fallo al reiniciar ms_last_modified $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . Session::getLoginUserID() . ").\n");
+      Toolbox::logInFile("ms365sync", "Fallo al reiniciar ms_last_modified $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
       return false;
    }
 }

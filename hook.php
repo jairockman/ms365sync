@@ -101,7 +101,7 @@ function plugin_ms365sync_hook_purge_user($item) {
    Toolbox::logInFile("ms365sync", "Datos del plugin purgados para el usuario ID: $uid\n", true);
 }
 
-/**
+/** 
  * Hook ejecutado cuando una entidad es purgada.
  */
 function plugin_ms365sync_hook_purge_entity($item) {

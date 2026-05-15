@@ -13,14 +13,15 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - **Granular Permissions**: Se ha migrado la seguridad de una configuración global a permisos basados en perfiles. Nuevo derecho `plugin_ms365sync_tenant` añadido.
 - **Matrix Permissions UI**: Los permisos ahora se muestran con el formato estándar de matriz (Read/Update/Create/Delete/Purge).
 - **Auto-Admin Privileges**: Se asignan permisos completos automáticamente al perfil Super-Admin durante la instalación.
-- **Dynamic Path Support**: Implementado soporte para instalaciones tanto en `plugins/` como en `marketplace/` usando `Plugin::getWebDir()`.
 ### Changed
 - **UI Refactoring**: Mejora en los formularios de configuración para incluir selectores de entidad y recursividad.
 ### Fixed
+- **Timezone Handling**: Corregida la importación de eventos externos para almacenar las fechas en la zona horaria local del usuario en GLPI, en lugar de UTC.
 - **Session Compatibility**: Corregida excepción de métodos inexistentes en la clase Session; ahora se utiliza la superglobal `$_SESSION['glpiname']` para obtener el nombre de usuario.
 - **Database UPDATE Safety**: Corregido error `Cannot run an UPDATE query without WHERE clause` al forzar re-sincronización global añadiendo condición por defecto.
 - **Path Stability**: Corregidos errores 404 en botones de re-sincronización asegurando rutas absolutas desde la raíz web de GLPI.
-- Versión de mantenimiento para estabilidad de permisos.
+- **Dynamic Path Support**: Implementado soporte para instalaciones tanto en `plugins/` como en `marketplace/` usando `Plugin::getWebDir()`.
+
 ### Fixed
 - **Task Duplication**: Corregido error donde las tareas de GLPI sincronizadas con Outlook eran re-importadas como eventos externos, causando duplicidad.
 - **Improved Filtering**: El Cron ahora ignora eventos de Outlook que tienen el metadato de origen de tarea de GLPI.
