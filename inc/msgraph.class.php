@@ -712,6 +712,7 @@ class PluginMs365syncMsGraph extends CommonDBTM {
          $conditions['ms_user_principal'] = $user_email;
          $log_scope = "para el usuario $user_email (ID: $users_id)";
       } else {
+         $conditions = [1 => 1]; // Permite actualizar todos los registros sin disparar el error de seguridad de GLPI
          $log_scope = "para TODOS los eventos de TODOS los usuarios";
       }
 

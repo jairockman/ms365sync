@@ -17,7 +17,9 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Changed
 - **UI Refactoring**: Mejora en los formularios de configuración para incluir selectores de entidad y recursividad.
 ### Fixed
-- **Session Compatibility**: Corregido error en el método de obtención del nombre de usuario en logs.
+- **Session Compatibility**: Corregida excepción `Call to undefined method Session::getLoginUsername()` por el método estándar `Session::getLoginName()`.
+- **Database UPDATE Safety**: Corregido error `Cannot run an UPDATE query without WHERE clause` al forzar re-sincronización global añadiendo condición por defecto.
+- **Path Stability**: Corregidos errores 404 en botones de re-sincronización asegurando rutas absolutas desde la raíz web de GLPI.
 - Versión de mantenimiento para estabilidad de permisos.
 ### Fixed
 - **Task Duplication**: Corregido error donde las tareas de GLPI sincronizadas con Outlook eran re-importadas como eventos externos, causando duplicidad.

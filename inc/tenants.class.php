@@ -37,20 +37,20 @@ class PluginMs365syncTenants extends CommonDBTM {
    }
 
    public function showTenantsList() {
-      global $DB;
+      global $DB, $CFG_GLPI;
       $table = self::getTable();
 
       echo "<div class='center'>";
       echo "<h2>" . __("Microsoft 365 Tenant Configuration", "ms365sync") . "</h2>";
       
       echo "<div class='mb-2'>";
-      echo "<a class='v-middle btn btn-primary' href='" . $this->getFormURL() . "?new=1'>
+      echo "<a class='v-middle btn btn-primary' href='" . $CFG_GLPI["root_doc"] . "/" . Plugin::getWebDir('ms365sync', false) . "/front/tenants.form.php?new=1'>
                <i class='fas fa-plus'></i> " . __("Add New Domain/Tenant", "ms365sync") . "
             </a>";
       echo "</div>";
       
       echo "<div class='mb-2'>";
-      echo "<a class='v-middle btn btn-danger' href='" . Plugin::getWebDir('ms365sync', true) . "/front/resync_all_events.php' 
+      echo "<a class='v-middle btn btn-danger' href='" . $CFG_GLPI["root_doc"] . "/" . Plugin::getWebDir('ms365sync', false) . "/front/resync_all_events.php' 
                onclick='return confirm(\"".__("This will force a re-synchronization of ALL GLPI events for ALL users with Outlook. This may take a long time and consume resources. Are you sure?", "ms365sync")."\")'>
                <i class='fas fa-sync-alt'></i> " . __("Force Re-sync ALL Events (Admin)", "ms365sync") . "
             </a>";

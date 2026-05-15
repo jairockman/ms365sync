@@ -17,6 +17,7 @@ if ($sync->resetMsLastModified()) {
 }
 
 // Redirigir de vuelta a la página de configuración del plugin
-Html::redirect(Plugin::getWebDir('ms365sync', true) . "/front/tenants.php");
+global $CFG_GLPI;
+Html::redirect($CFG_GLPI["root_doc"] . "/" . Plugin::getWebDir('ms365sync', false) . "/front/tenants.php");
 
 ?>
