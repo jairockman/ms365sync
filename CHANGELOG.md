@@ -16,8 +16,8 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Changed
 - **UI Refactoring**: Mejora en los formularios de configuración para incluir selectores de entidad y recursividad.
 ### Fixed
-- **Timezone Handling**: Corregida la importación de eventos externos para almacenar las fechas en la zona horaria local del usuario en GLPI, en lugar de UTC.
-- **Session Compatibility**: Corregida excepción de métodos inexistentes en la clase Session; ahora se utiliza la superglobal `$_SESSION['glpiname']` para obtener el nombre de usuario.
+- **Timezone Handling**: Los eventos externos ahora se almacenan en la zona horaria local del usuario (America/Guayaquil) en la base de datos de GLPI para evitar desfases en el calendario, mientras que los metadatos de sincronización permanecen en UTC.
+- **Session Compatibility**: Eliminadas llamadas a métodos inexistentes `Session::getLoginName()` y `getLoginUsername()`; se utiliza la superglobal `$_SESSION['glpiname']` para garantizar compatibilidad con GLPI 10.
 - **Database UPDATE Safety**: Corregido error `Cannot run an UPDATE query without WHERE clause` al forzar re-sincronización global añadiendo condición por defecto.
 - **Path Stability**: Corregidos errores 404 en botones de re-sincronización asegurando rutas absolutas desde la raíz web de GLPI.
 - **Dynamic Path Support**: Implementado soporte para instalaciones tanto en `plugins/` como en `marketplace/` usando `Plugin::getWebDir()`.

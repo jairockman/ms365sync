@@ -497,7 +497,7 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      continue;
                   }
 
-                  // Metadatos de sincronización se guardan en UTC
+                  // Metadatos de sincronización se guardan siempre en UTC para comparaciones precisas
                   $ms_modified = $this->formatGraphDateToGLPI($ms_event['lastModifiedDateTime'], 'UTC', true);
                   $ms_body = $ms_event['body']['content'] ?? '';
                   
@@ -529,7 +529,7 @@ class PluginMs365syncMsGraph extends CommonDBTM {
                      'text'         => $clean_text,
                      'users_id'     => $user_id, // Asignar al usuario GLPI
                      'plan'         => [ // GLPI espera 'plan' para eventos de planificación
-                        // Guardamos la hora LOCAL tal cual viene de Graph para que GLPI la muestre correctamente
+                        // Guardamos la hora LOCAL de Microsoft para que el calendario de GLPI no sufra desfases
                         'begin' => $this->formatGraphDateToGLPI($ms_event['start']['dateTime'], $ms_event['start']['timeZone'], false),
                         'end'   => $this->formatGraphDateToGLPI($ms_event['end']['dateTime'], $ms_event['end']['timeZone'], false)
                      ],
@@ -624,10 +624,10 @@ class PluginMs365syncMsGraph extends CommonDBTM {
       $user_tz = $this->getUserTimezone($users_id);
       try {
          if ($is_utc_in_db) {
-            // Para tareas (TicketTask, etc.) que se almacenan en UTC en la DB de GLPI
+            // Tareas normales: De UTC (DB) -> Local (Graph)
             $dt = new DateTime($date, new DateTimeZone('UTC'));
          } else {
-            // Para PlanningExternalEvent/PlanningEvent que se almacenan en la zona horaria local en la DB de GLPI
+            // Eventos externos: Ya están en Local en la DB (UTC-5)
             $dt = new DateTime($date, new DateTimeZone($user_tz));
          }
          $dt->setTimezone(new DateTimeZone($user_tz));
@@ -646,15 +646,15 @@ class PluginMs365syncMsGraph extends CommonDBTM {
     *
     * @param string $graphDateTime La cadena de fecha y hora de Graph (ej. "2024-05-15T10:00:00").
     * @param string $graphTimeZone La zona horaria de Graph. Por defecto 'UTC' (para lastModifiedDateTime).
-    * @param bool $convertToUTC Si es true, convierte a UTC. Si false, mantiene la zona horaria original.
-    * @return string|null La fecha y hora formateada para GLPI, o null si hay un error.
+    * @param bool $convertToUTC Si es true, convierte a UTC (para metadatos). Si false, mantiene local (para planning).
+    * @return string|null
     */
    public function formatGraphDateToGLPI($graphDateTime, $graphTimeZone = 'UTC', $convertToUTC = true) {
       if (empty($graphDateTime)) {return null;}
       try {
          $dt = new \DateTime($graphDateTime, new \DateTimeZone($graphTimeZone));
          if ($convertToUTC) {
-            $dt->setTimezone(new \DateTimeZone('UTC')); // Convertir a UTC para el almacenamiento interno de GLPI
+            $dt->setTimezone(new \DateTimeZone('UTC'));
          }
          return $dt->format(PLUGIN_MS365SYNC_DATE_FORMAT);
       } catch (\Exception $e) {
@@ -728,7 +728,8 @@ class PluginMs365syncMsGraph extends CommonDBTM {
 
       // Establecer ms_last_modified a NULL para que el cron lo detecte como "modificado"
       if ($DB->update($table_map, ['ms_last_modified' => null], $conditions)) {
-         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
+         $exec_user = $_SESSION['glpiname'] ?? 'system';
+         Toolbox::logInFile("ms365sync", "Reinicio de ms_last_modified exitoso $log_scope. Ejecutado por $exec_user (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
          return true;
       }
       Toolbox::logInFile("ms365sync", "Fallo al reiniciar ms_last_modified $log_scope. Ejecutado por " . ($_SESSION['glpiname'] ?? 'system') . " (ID: " . ($_SESSION['glpiID'] ?? 0) . ").\n");
